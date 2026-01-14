@@ -1,5 +1,5 @@
 //
-//  CSCapMatcher.h
+//  CSUrnMatcher.h
 //  URN Matching Logic
 //
 //  Provides utilities for finding the best URN match from a collection
@@ -14,7 +14,7 @@ NS_ASSUME_NONNULL_BEGIN
 /**
  * Utility class for URN matching operations
  */
-@interface CSCapMatcher : NSObject
+@interface CSUrnMatcher : NSObject
 
 /**
  * Find the most specific URN that can handle a request
