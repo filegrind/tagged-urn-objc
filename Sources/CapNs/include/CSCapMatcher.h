@@ -1,8 +1,8 @@
 //
 //  CSCapMatcher.h
-//  Cap Matching Logic
+//  URN Matching Logic
 //
-//  Provides utilities for finding the best cap match from a collection
+//  Provides utilities for finding the best URN match from a collection
 //  based on specificity and compatibility rules.
 //
 
@@ -12,45 +12,60 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /**
- * Utility class for cap matching operations
+ * Utility class for URN matching operations
  */
 @interface CSCapMatcher : NSObject
 
 /**
- * Find the most specific cap that can handle a request
- * @param caps Array of available caps
- * @param request The requested cap
- * @return The best matching cap or nil if none can handle the request
+ * Find the most specific URN that can handle a request
+ *
+ * IMPORTANT: All URNs must have the same prefix as the request.
+ *
+ * @param urns Array of available URNs
+ * @param request The requested URN
+ * @param error Error if prefixes don't match
+ * @return The best matching URN or nil if none can handle the request
  */
-+ (nullable CSTaggedUrn *)findBestMatchInCaps:(NSArray<CSTaggedUrn *> * _Nonnull)caps 
-                                              forRequest:(CSTaggedUrn * _Nonnull)request;
++ (nullable CSTaggedUrn *)findBestMatchInUrns:(NSArray<CSTaggedUrn *> * _Nonnull)urns
+                                   forRequest:(CSTaggedUrn * _Nonnull)request
+                                        error:(NSError * _Nullable * _Nullable)error;
 
 /**
- * Find all caps that can handle a request
- * @param caps Array of available caps
- * @param request The requested cap
- * @return Array of caps that can handle the request, sorted by specificity (most specific first)
+ * Find all URNs that can handle a request
+ *
+ * IMPORTANT: All URNs must have the same prefix as the request.
+ *
+ * @param urns Array of available URNs
+ * @param request The requested URN
+ * @param error Error if prefixes don't match
+ * @return Array of URNs that can handle the request, sorted by specificity (most specific first)
  */
-+ (NSArray<CSTaggedUrn *> * _Nonnull)findAllMatchesInCaps:(NSArray<CSTaggedUrn *> * _Nonnull)caps 
-                                                  forRequest:(CSTaggedUrn * _Nonnull)request;
++ (nullable NSArray<CSTaggedUrn *> *)findAllMatchesInUrns:(NSArray<CSTaggedUrn *> * _Nonnull)urns
+                                               forRequest:(CSTaggedUrn * _Nonnull)request
+                                                    error:(NSError * _Nullable * _Nullable)error;
 
 /**
- * Sort caps by specificity
- * @param caps Array of caps to sort
+ * Sort URNs by specificity
+ * @param urns Array of URNs to sort
  * @return Array sorted by specificity (most specific first)
  */
-+ (NSArray<CSTaggedUrn *> * _Nonnull)sortCapsBySpecificity:(NSArray<CSTaggedUrn *> * _Nonnull)caps;
++ (NSArray<CSTaggedUrn *> * _Nonnull)sortUrnsBySpecificity:(NSArray<CSTaggedUrn *> * _Nonnull)urns;
 
 /**
- * Check if a cap can handle a request with additional context
- * @param cap The cap to check
- * @param request The requested cap
+ * Check if a URN can handle a request with additional context
+ *
+ * IMPORTANT: Both URNs must have the same prefix.
+ *
+ * @param urn The URN to check
+ * @param request The requested URN
  * @param context Additional context for matching (optional)
- * @return YES if the cap can handle the request
+ * @param error Error if prefixes don't match
+ * @return YES if the URN can handle the request
  */
-+ (BOOL)cap:(CSTaggedUrn * _Nonnull)cap 
-    canHandleRequest:(CSTaggedUrn * _Nonnull)request 
-         withContext:(nullable NSDictionary<NSString *, id> *)context;
++ (BOOL)urn:(CSTaggedUrn * _Nonnull)urn
+    canHandleRequest:(CSTaggedUrn * _Nonnull)request
+         withContext:(nullable NSDictionary<NSString *, id> *)context
+               error:(NSError * _Nullable * _Nullable)error;
 
 @end
 
