@@ -1,10 +1,9 @@
 //
 //  CSTaggedUrn.h
-//  Flat Tag-Based Cap Identifier System
+//  Flat Tag-Based URN Identifier System
 //
-//  This provides a flat, tag-based tagged URN system that replaces
-//  hierarchical naming with key-value tags to handle cross-cutting concerns and
-//  multi-dimensional cap classification.
+//  This provides a flat, tag-based tagged URN system with configurable prefix,
+//  wildcard support, and specificity comparison.
 //
 
 #import <Foundation/Foundation.h>
@@ -12,16 +11,19 @@
 NS_ASSUME_NONNULL_BEGIN
 
 /**
- * A tagged URN using flat, ordered tags
+ * A tagged URN using flat, ordered tags with a configurable prefix
  *
  * Examples:
  * - cap:op=generate;ext=pdf;output=binary;target=thumbnail
- * - cap:op=extract;target=metadata
- * - cap:op=analysis;format=en;type=constrained
+ * - myapp:key="Value With Spaces"
+ * - custom:a=1;b=2
  */
 @interface CSTaggedUrn : NSObject <NSCopying, NSSecureCoding>
 
-/// The tags that define this cap
+/// The prefix for this URN (e.g., "cap", "myapp", "custom")
+@property (nonatomic, readonly) NSString *prefix;
+
+/// The tags that define this URN
 @property (nonatomic, readonly) NSDictionary<NSString *, NSString *> *tags;
 
 /**
@@ -33,12 +35,20 @@ NS_ASSUME_NONNULL_BEGIN
 + (nullable instancetype)fromString:(NSString * _Nonnull)string error:(NSError * _Nullable * _Nullable)error;
 
 /**
- * Create a tagged URN from tags
+ * Create a tagged URN from tags with a specified prefix (required)
+ * @param prefix The prefix for this URN (e.g., "cap", "myapp")
  * @param tags Dictionary of tag key-value pairs
  * @param error Error if tags are invalid
  * @return A new CSTaggedUrn instance or nil if invalid
  */
-+ (nullable instancetype)fromTags:(NSDictionary<NSString *, NSString *> * _Nonnull)tags error:(NSError * _Nullable * _Nullable)error;
++ (nullable instancetype)fromPrefix:(NSString * _Nonnull)prefix tags:(NSDictionary<NSString *, NSString *> * _Nonnull)tags error:(NSError * _Nullable * _Nullable)error;
+
+/**
+ * Create an empty tagged URN with the specified prefix (required)
+ * @param prefix The prefix for this URN
+ * @return A new CSTaggedUrn instance
+ */
++ (instancetype)emptyWithPrefix:(NSString * _Nonnull)prefix;
 
 /**
  * Get the value of a specific tag
@@ -48,7 +58,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (nullable NSString *)getTag:(NSString * _Nonnull)key;
 
 /**
- * Check if this cap has a specific tag with a specific value
+ * Check if this URN has a specific tag with a specific value
  * @param key The tag key
  * @param value The tag value to check
  * @return YES if the tag exists with the specified value
@@ -71,62 +81,83 @@ NS_ASSUME_NONNULL_BEGIN
 - (CSTaggedUrn * _Nonnull)withoutTag:(NSString * _Nonnull)key;
 
 /**
- * Check if this cap matches another based on tag compatibility
- * @param pattern The pattern cap to match against
- * @return YES if this cap matches the pattern
+ * Check if this URN matches another based on tag compatibility
+ *
+ * IMPORTANT: Both URNs must have the same prefix. Comparing URNs with
+ * different prefixes is a programming error and will return NO with an error.
+ *
+ * @param pattern The pattern URN to match against
+ * @param error Error if prefixes don't match
+ * @return YES if this URN matches the pattern
  */
-- (BOOL)matches:(CSTaggedUrn * _Nonnull)pattern;
+- (BOOL)matches:(CSTaggedUrn * _Nonnull)pattern error:(NSError * _Nullable * _Nullable)error;
 
 /**
- * Check if this cap can handle a request
- * @param request The requested cap
- * @return YES if this cap can handle the request
+ * Check if this URN can handle a request
+ *
+ * IMPORTANT: Both URNs must have the same prefix.
+ *
+ * @param request The requested URN
+ * @param error Error if prefixes don't match
+ * @return YES if this URN can handle the request
  */
-- (BOOL)canHandle:(CSTaggedUrn * _Nonnull)request;
+- (BOOL)canHandle:(CSTaggedUrn * _Nonnull)request error:(NSError * _Nullable * _Nullable)error;
 
 /**
- * Get the specificity score for cap matching
+ * Get the specificity score for URN matching
  * @return The number of non-wildcard tags
  */
 - (NSUInteger)specificity;
 
 /**
- * Check if this cap is more specific than another
- * @param other The other cap to compare specificity with
- * @return YES if this cap is more specific
+ * Check if this URN is more specific than another
+ *
+ * IMPORTANT: Both URNs must have the same prefix.
+ *
+ * @param other The other URN to compare specificity with
+ * @param error Error if prefixes don't match
+ * @return YES if this URN is more specific
  */
-- (BOOL)isMoreSpecificThan:(CSTaggedUrn * _Nonnull)other;
+- (BOOL)isMoreSpecificThan:(CSTaggedUrn * _Nonnull)other error:(NSError * _Nullable * _Nullable)error;
 
 /**
- * Check if this cap is compatible with another
- * @param other The other cap to check compatibility with
- * @return YES if the caps are compatible
+ * Check if this URN is compatible with another
+ *
+ * IMPORTANT: Both URNs must have the same prefix.
+ *
+ * @param other The other URN to check compatibility with
+ * @param error Error if prefixes don't match
+ * @return YES if the URNs are compatible
  */
-- (BOOL)isCompatibleWith:(CSTaggedUrn * _Nonnull)other;
+- (BOOL)isCompatibleWith:(CSTaggedUrn * _Nonnull)other error:(NSError * _Nullable * _Nullable)error;
 
 /**
- * Create a new cap with a specific tag set to wildcard
+ * Create a new URN with a specific tag set to wildcard
  * @param key The tag key to set to wildcard
  * @return A new CSTaggedUrn instance with the tag set to wildcard
  */
 - (CSTaggedUrn * _Nonnull)withWildcardTag:(NSString * _Nonnull)key;
 
 /**
- * Create a new cap with only specified tags
+ * Create a new URN with only specified tags
  * @param keys Array of tag keys to include
  * @return A new CSTaggedUrn instance with only the specified tags
  */
 - (CSTaggedUrn * _Nonnull)subset:(NSArray<NSString *> * _Nonnull)keys;
 
 /**
- * Merge with another cap (other takes precedence for conflicts)
- * @param other The cap to merge with
- * @return A new CSTaggedUrn instance with merged tags
+ * Merge with another URN (other takes precedence for conflicts)
+ *
+ * IMPORTANT: Both URNs must have the same prefix.
+ *
+ * @param other The URN to merge with
+ * @param error Error if prefixes don't match
+ * @return A new CSTaggedUrn instance with merged tags or nil if error
  */
-- (CSTaggedUrn * _Nonnull)merge:(CSTaggedUrn * _Nonnull)other;
+- (nullable CSTaggedUrn *)merge:(CSTaggedUrn * _Nonnull)other error:(NSError * _Nullable * _Nullable)error;
 
 /**
- * Get the canonical string representation of this cap
+ * Get the canonical string representation of this URN
  * @return The tagged URN as a string
  */
 - (NSString *)toString;
@@ -143,11 +174,13 @@ typedef NS_ERROR_ENUM(CSTaggedUrnErrorDomain, CSTaggedUrnError) {
     CSTaggedUrnErrorEmptyTag = 2,
     CSTaggedUrnErrorInvalidCharacter = 3,
     CSTaggedUrnErrorInvalidTagFormat = 4,
-    CSTaggedUrnErrorMissingCapPrefix = 5,
+    CSTaggedUrnErrorMissingPrefix = 5,
     CSTaggedUrnErrorDuplicateKey = 6,
     CSTaggedUrnErrorNumericKey = 7,
     CSTaggedUrnErrorUnterminatedQuote = 8,
-    CSTaggedUrnErrorInvalidEscapeSequence = 9
+    CSTaggedUrnErrorInvalidEscapeSequence = 9,
+    CSTaggedUrnErrorEmptyPrefix = 10,
+    CSTaggedUrnErrorPrefixMismatch = 11
 };
 
 /**
@@ -156,10 +189,11 @@ typedef NS_ERROR_ENUM(CSTaggedUrnErrorDomain, CSTaggedUrnError) {
 @interface CSTaggedUrnBuilder : NSObject
 
 /**
- * Create a new builder
+ * Create a new builder with a specified prefix (required)
+ * @param prefix The prefix for the URN
  * @return A new CSTaggedUrnBuilder instance
  */
-+ (instancetype)builder;
++ (instancetype)builderWithPrefix:(NSString * _Nonnull)prefix;
 
 /**
  * Add or update a tag
@@ -175,6 +209,12 @@ typedef NS_ERROR_ENUM(CSTaggedUrnErrorDomain, CSTaggedUrnError) {
  * @return A new CSTaggedUrn instance or nil if error
  */
 - (nullable CSTaggedUrn *)build:(NSError * _Nullable * _Nullable)error;
+
+/**
+ * Build the final TaggedUrn, allowing empty tags
+ * @return A new CSTaggedUrn instance
+ */
+- (CSTaggedUrn * _Nonnull)buildAllowEmpty;
 
 @end
 

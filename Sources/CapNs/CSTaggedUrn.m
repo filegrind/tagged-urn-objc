@@ -1,6 +1,6 @@
 //
 //  CSTaggedUrn.m
-//  Flat Tag-Based Cap Identifier Implementation
+//  Flat Tag-Based URN Identifier Implementation
 //
 
 #import "CSTaggedUrn.h"
@@ -19,10 +19,15 @@ typedef NS_ENUM(NSInteger, CSParseState) {
 };
 
 @interface CSTaggedUrn ()
+@property (nonatomic, strong) NSString *mutablePrefix;
 @property (nonatomic, strong) NSMutableDictionary<NSString *, NSString *> *mutableTags;
 @end
 
 @implementation CSTaggedUrn
+
+- (NSString *)prefix {
+    return self.mutablePrefix;
+}
 
 - (NSDictionary<NSString *, NSString *> *)tags {
     return [self.mutableTags copy];
@@ -81,27 +86,38 @@ typedef NS_ENUM(NSInteger, CSParseState) {
         if (error) {
             *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
                                          code:CSTaggedUrnErrorInvalidFormat
-                                     userInfo:@{NSLocalizedDescriptionKey: @"Cap identifier cannot be empty"}];
+                                     userInfo:@{NSLocalizedDescriptionKey: @"URN identifier cannot be empty"}];
         }
         return nil;
     }
 
-    // Check for "cap:" prefix (case-insensitive)
-    if (string.length < 4 || ![[string substringToIndex:4] caseInsensitiveCompare:@"cap:"] == NSOrderedSame) {
+    // Find the prefix (everything before the first colon)
+    NSRange colonRange = [string rangeOfString:@":"];
+    if (colonRange.location == NSNotFound) {
         if (error) {
             *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
-                                         code:CSTaggedUrnErrorMissingCapPrefix
-                                     userInfo:@{NSLocalizedDescriptionKey: @"Cap identifier must start with 'cap:'"}];
+                                         code:CSTaggedUrnErrorMissingPrefix
+                                     userInfo:@{NSLocalizedDescriptionKey: @"URN must have a prefix followed by ':'"}];
         }
         return nil;
     }
 
-    NSString *tagsPart = [string substringFromIndex:4];
+    if (colonRange.location == 0) {
+        if (error) {
+            *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                         code:CSTaggedUrnErrorEmptyPrefix
+                                     userInfo:@{NSLocalizedDescriptionKey: @"URN prefix cannot be empty"}];
+        }
+        return nil;
+    }
+
+    NSString *prefix = [[string substringToIndex:colonRange.location] lowercaseString];
+    NSString *tagsPart = [string substringFromIndex:colonRange.location + 1];
     NSMutableDictionary<NSString *, NSString *> *tags = [NSMutableDictionary dictionary];
 
-    // Handle empty tagged URN (cap: with no tags or just semicolon)
+    // Handle empty tagged URN (prefix: with no tags or just semicolon)
     if (tagsPart.length == 0 || [tagsPart isEqualToString:@";"]) {
-        return [self fromTagsInternal:tags error:error];
+        return [self fromPrefix:prefix tagsInternal:tags error:error];
     }
 
     CSParseState state = CSParseStateExpectingKey;
@@ -279,7 +295,7 @@ typedef NS_ENUM(NSInteger, CSParseState) {
             return nil;
     }
 
-    return [self fromTagsInternal:tags error:error];
+    return [self fromPrefix:prefix tagsInternal:tags error:error];
 }
 
 + (BOOL)finishTag:(NSMutableDictionary *)tags key:(NSString *)key value:(NSString *)value error:(NSError **)error {
@@ -325,7 +341,7 @@ typedef NS_ENUM(NSInteger, CSParseState) {
     return YES;
 }
 
-+ (nullable instancetype)fromTags:(NSDictionary<NSString *, NSString *> *)tags error:(NSError **)error {
++ (nullable instancetype)fromPrefix:(NSString *)prefix tags:(NSDictionary<NSString *, NSString *> *)tags error:(NSError **)error {
     if (!tags) {
         tags = @{};
     }
@@ -337,17 +353,23 @@ typedef NS_ENUM(NSInteger, CSParseState) {
         normalizedTags[[key lowercaseString]] = value;
     }
 
-    return [self fromTagsInternal:normalizedTags error:error];
+    return [self fromPrefix:prefix tagsInternal:normalizedTags error:error];
 }
 
-+ (nullable instancetype)fromTagsInternal:(NSDictionary<NSString *, NSString *> *)tags error:(NSError **)error {
++ (nullable instancetype)fromPrefix:(NSString *)prefix tagsInternal:(NSDictionary<NSString *, NSString *> *)tags error:(NSError **)error {
     CSTaggedUrn *instance = [[CSTaggedUrn alloc] init];
+    instance.mutablePrefix = [prefix lowercaseString];
     instance.mutableTags = [tags mutableCopy];
     return instance;
 }
 
++ (instancetype)emptyWithPrefix:(NSString *)prefix {
+    return [self fromPrefix:prefix tagsInternal:@{} error:nil];
+}
+
 - (instancetype)init {
     if (self = [super init]) {
+        _mutablePrefix = @"";
         _mutableTags = [NSMutableDictionary dictionary];
     }
     return self;
@@ -367,53 +389,68 @@ typedef NS_ENUM(NSInteger, CSParseState) {
     NSMutableDictionary *newTags = [self.mutableTags mutableCopy];
     // Key lowercase, value preserved
     newTags[[key lowercaseString]] = value;
-    return [CSTaggedUrn fromTagsInternal:newTags error:nil];
+    return [CSTaggedUrn fromPrefix:self.mutablePrefix tagsInternal:newTags error:nil];
 }
 
 - (CSTaggedUrn *)withoutTag:(NSString *)key {
     NSMutableDictionary *newTags = [self.mutableTags mutableCopy];
     [newTags removeObjectForKey:[key lowercaseString]];
-    return [CSTaggedUrn fromTagsInternal:newTags error:nil];
+    return [CSTaggedUrn fromPrefix:self.mutablePrefix tagsInternal:newTags error:nil];
 }
 
-- (BOOL)matches:(CSTaggedUrn *)request {
+- (BOOL)matches:(CSTaggedUrn *)request error:(NSError **)error {
     if (!request) {
-        return YES;
+        if (error) {
+            *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                         code:CSTaggedUrnErrorInvalidFormat
+                                     userInfo:@{NSLocalizedDescriptionKey: @"Cannot match against nil request"}];
+        }
+        return NO;
+    }
+
+    // First check prefix - must match exactly
+    if (![self.mutablePrefix isEqualToString:request.mutablePrefix]) {
+        if (error) {
+            *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                         code:CSTaggedUrnErrorPrefixMismatch
+                                     userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Cannot compare URNs with different prefixes: '%@' vs '%@'", self.mutablePrefix, request.mutablePrefix]}];
+        }
+        return NO;
     }
 
     // Check all tags that the request specifies
     for (NSString *requestKey in request.tags) {
         NSString *requestValue = request.tags[requestKey];
-        NSString *capValue = self.mutableTags[requestKey];
+        NSString *urnValue = self.mutableTags[requestKey];
 
-        if (!capValue) {
-            // Missing tag in cap is treated as wildcard - can handle any value
+        if (!urnValue) {
+            // Missing tag in URN is treated as wildcard - can handle any value
             continue;
         }
 
-        if ([capValue isEqualToString:@"*"]) {
-            // Cap has wildcard - can handle any value
+        if ([urnValue isEqualToString:@"*"]) {
+            // URN has wildcard - can handle any value
             continue;
         }
 
         if ([requestValue isEqualToString:@"*"]) {
-            // Request accepts any value - cap's specific value matches
+            // Request accepts any value - URN's specific value matches
             continue;
         }
 
-        if (![capValue isEqualToString:requestValue]) {
-            // Cap has specific value that doesn't match request's specific value
+        if (![urnValue isEqualToString:requestValue]) {
+            // URN has specific value that doesn't match request's specific value
             return NO;
         }
     }
 
-    // If cap has additional specific tags that request doesn't specify, that's fine
-    // The cap is just more specific than needed
+    // If URN has additional specific tags that request doesn't specify, that's fine
+    // The URN is just more specific than needed
     return YES;
 }
 
-- (BOOL)canHandle:(CSTaggedUrn *)request {
-    return [self matches:request];
+- (BOOL)canHandle:(CSTaggedUrn *)request error:(NSError **)error {
+    return [self matches:request error:error];
 }
 
 - (NSUInteger)specificity {
@@ -426,25 +463,59 @@ typedef NS_ENUM(NSInteger, CSParseState) {
     return count;
 }
 
-- (BOOL)isMoreSpecificThan:(CSTaggedUrn *)other {
+- (BOOL)isMoreSpecificThan:(CSTaggedUrn *)other error:(NSError **)error {
     if (!other) {
-        return YES;
+        if (error) {
+            *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                         code:CSTaggedUrnErrorInvalidFormat
+                                     userInfo:@{NSLocalizedDescriptionKey: @"Cannot compare against nil URN"}];
+        }
+        return NO;
     }
 
-    // First check if they're compatible
-    if (![self isCompatibleWith:other]) {
+    // First check prefix
+    if (![self.mutablePrefix isEqualToString:other.mutablePrefix]) {
+        if (error) {
+            *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                         code:CSTaggedUrnErrorPrefixMismatch
+                                     userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Cannot compare URNs with different prefixes: '%@' vs '%@'", self.mutablePrefix, other.mutablePrefix]}];
+        }
+        return NO;
+    }
+
+    // Then check if they're compatible
+    NSError *compatError = nil;
+    if (![self isCompatibleWith:other error:&compatError]) {
+        if (compatError && error) {
+            *error = compatError;
+        }
         return NO;
     }
 
     return self.specificity > other.specificity;
 }
 
-- (BOOL)isCompatibleWith:(CSTaggedUrn *)other {
+- (BOOL)isCompatibleWith:(CSTaggedUrn *)other error:(NSError **)error {
     if (!other) {
-        return YES;
+        if (error) {
+            *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                         code:CSTaggedUrnErrorInvalidFormat
+                                     userInfo:@{NSLocalizedDescriptionKey: @"Cannot check compatibility with nil URN"}];
+        }
+        return NO;
     }
 
-    // Get all unique tag keys from both caps
+    // First check prefix
+    if (![self.mutablePrefix isEqualToString:other.mutablePrefix]) {
+        if (error) {
+            *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                         code:CSTaggedUrnErrorPrefixMismatch
+                                     userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Cannot compare URNs with different prefixes: '%@' vs '%@'", self.mutablePrefix, other.mutablePrefix]}];
+        }
+        return NO;
+    }
+
+    // Get all unique tag keys from both URNs
     NSMutableSet<NSString *> *allKeys = [NSMutableSet setWithArray:self.mutableTags.allKeys];
     [allKeys addObjectsFromArray:other.mutableTags.allKeys];
 
@@ -480,20 +551,38 @@ typedef NS_ENUM(NSInteger, CSParseState) {
             newTags[normalizedKey] = value;
         }
     }
-    return [CSTaggedUrn fromTagsInternal:newTags error:nil];
+    return [CSTaggedUrn fromPrefix:self.mutablePrefix tagsInternal:newTags error:nil];
 }
 
-- (CSTaggedUrn *)merge:(CSTaggedUrn *)other {
+- (nullable CSTaggedUrn *)merge:(CSTaggedUrn *)other error:(NSError **)error {
+    if (!other) {
+        if (error) {
+            *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                         code:CSTaggedUrnErrorInvalidFormat
+                                     userInfo:@{NSLocalizedDescriptionKey: @"Cannot merge with nil URN"}];
+        }
+        return nil;
+    }
+
+    if (![self.mutablePrefix isEqualToString:other.mutablePrefix]) {
+        if (error) {
+            *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                         code:CSTaggedUrnErrorPrefixMismatch
+                                     userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Cannot merge URNs with different prefixes: '%@' vs '%@'", self.mutablePrefix, other.mutablePrefix]}];
+        }
+        return nil;
+    }
+
     NSMutableDictionary *newTags = [self.mutableTags mutableCopy];
     for (NSString *key in other.mutableTags) {
         newTags[key] = other.mutableTags[key];
     }
-    return [CSTaggedUrn fromTagsInternal:newTags error:nil];
+    return [CSTaggedUrn fromPrefix:self.mutablePrefix tagsInternal:newTags error:nil];
 }
 
 - (NSString *)toString {
     if (self.mutableTags.count == 0) {
-        return @"cap:";
+        return [NSString stringWithFormat:@"%@:", self.mutablePrefix];
     }
 
     // Sort keys for canonical representation
@@ -510,7 +599,7 @@ typedef NS_ENUM(NSInteger, CSParseState) {
     }
 
     NSString *tagsString = [parts componentsJoinedByString:@";"];
-    return [NSString stringWithFormat:@"cap:%@", tagsString];
+    return [NSString stringWithFormat:@"%@:%@", self.mutablePrefix, tagsString];
 }
 
 - (NSString *)description {
@@ -523,17 +612,18 @@ typedef NS_ENUM(NSInteger, CSParseState) {
     }
 
     CSTaggedUrn *other = (CSTaggedUrn *)object;
-    return [self.mutableTags isEqualToDictionary:other.mutableTags];
+    return [self.mutablePrefix isEqualToString:other.mutablePrefix] &&
+           [self.mutableTags isEqualToDictionary:other.mutableTags];
 }
 
 - (NSUInteger)hash {
-    return self.mutableTags.hash;
+    return self.mutablePrefix.hash ^ self.mutableTags.hash;
 }
 
 #pragma mark - NSCopying
 
 - (id)copyWithZone:(NSZone *)zone {
-    return [CSTaggedUrn fromTagsInternal:self.tags error:nil];
+    return [CSTaggedUrn fromPrefix:self.mutablePrefix tagsInternal:self.tags error:nil];
 }
 
 #pragma mark - NSSecureCoding
@@ -543,11 +633,16 @@ typedef NS_ENUM(NSInteger, CSParseState) {
 }
 
 - (void)encodeWithCoder:(NSCoder *)coder {
+    [coder encodeObject:self.mutablePrefix forKey:@"prefix"];
     [coder encodeObject:self.mutableTags forKey:@"tags"];
 }
 
 - (instancetype)initWithCoder:(NSCoder *)coder {
     if (self = [super init]) {
+        _mutablePrefix = [coder decodeObjectOfClass:[NSString class] forKey:@"prefix"];
+        if (!_mutablePrefix) {
+            _mutablePrefix = @"";
+        }
         _mutableTags = [[coder decodeObjectOfClass:[NSMutableDictionary class] forKey:@"tags"] mutableCopy];
         if (!_mutableTags) {
             _mutableTags = [NSMutableDictionary dictionary];
@@ -561,17 +656,21 @@ typedef NS_ENUM(NSInteger, CSParseState) {
 #pragma mark - CSTaggedUrnBuilder
 
 @interface CSTaggedUrnBuilder ()
+@property (nonatomic, strong) NSString *builderPrefix;
 @property (nonatomic, strong) NSMutableDictionary<NSString *, NSString *> *tags;
 @end
 
 @implementation CSTaggedUrnBuilder
 
-+ (instancetype)builder {
-    return [[CSTaggedUrnBuilder alloc] init];
++ (instancetype)builderWithPrefix:(NSString *)prefix {
+    CSTaggedUrnBuilder *builder = [[CSTaggedUrnBuilder alloc] init];
+    builder.builderPrefix = [prefix lowercaseString];
+    return builder;
 }
 
 - (instancetype)init {
     if (self = [super init]) {
+        _builderPrefix = @"";
         _tags = [NSMutableDictionary dictionary];
     }
     return self;
@@ -588,13 +687,16 @@ typedef NS_ENUM(NSInteger, CSParseState) {
         if (error) {
             *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
                                          code:CSTaggedUrnErrorInvalidFormat
-                                     userInfo:@{NSLocalizedDescriptionKey: @"Cap identifier cannot be empty"}];
+                                     userInfo:@{NSLocalizedDescriptionKey: @"URN identifier cannot be empty"}];
         }
         return nil;
     }
 
-    return [CSTaggedUrn fromTagsInternal:self.tags error:error];
+    return [CSTaggedUrn fromPrefix:self.builderPrefix tagsInternal:self.tags error:error];
 }
 
+- (CSTaggedUrn *)buildAllowEmpty {
+    return [CSTaggedUrn fromPrefix:self.builderPrefix tagsInternal:self.tags error:nil];
+}
 
 @end
