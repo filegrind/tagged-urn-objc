@@ -1,11 +1,11 @@
 //
-//  CSCapMatcher.m
+//  CSUrnMatcher.m
 //  URN Matching Implementation
 //
 
-#import "CSCapMatcher.h"
+#import "CSUrnMatcher.h"
 
-@implementation CSCapMatcher
+@implementation CSUrnMatcher
 
 + (nullable CSTaggedUrn *)findBestMatchInUrns:(NSArray<CSTaggedUrn *> *)urns
                                    forRequest:(CSTaggedUrn *)request

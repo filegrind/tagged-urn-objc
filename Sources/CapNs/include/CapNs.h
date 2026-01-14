@@ -15,4 +15,4 @@ FOUNDATION_EXPORT double CapNsVersionNumber;
 FOUNDATION_EXPORT const unsigned char CapNsVersionString[];
 
 #import "CSTaggedUrn.h"
-#import "CSCapMatcher.h"
+#import "CSUrnMatcher.h"
