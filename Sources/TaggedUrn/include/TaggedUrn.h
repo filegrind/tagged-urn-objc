@@ -1,5 +1,5 @@
 //
-//  CapNs.h
+//  TaggedUrn.h
 //  Tagged URN - Flat tag-based identifier system
 //
 //  This library provides the fundamental tagged URN system with flat tag-based
@@ -8,11 +8,11 @@
 
 #import <Foundation/Foundation.h>
 
-//! Project version number for CapNs.
-FOUNDATION_EXPORT double CapNsVersionNumber;
+//! Project version number for TaggedUrn.
+FOUNDATION_EXPORT double TaggedUrnVersionNumber;
 
-//! Project version string for CapNs.
-FOUNDATION_EXPORT const unsigned char CapNsVersionString[];
+//! Project version string for TaggedUrn.
+FOUNDATION_EXPORT const unsigned char TaggedUrnVersionString[];
 
 #import "CSTaggedUrn.h"
 #import "CSUrnMatcher.h"
