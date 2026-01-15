@@ -6,7 +6,7 @@
 //
 
 #import <XCTest/XCTest.h>
-#import "CapNs.h"
+@import TaggedUrn;
 
 @interface CSTaggedUrnBuilderTests : XCTestCase
 @end

@@ -162,6 +162,21 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (NSString *)toString;
 
+#pragma mark - Utility Methods
+
+/**
+ * Check if a value needs quoting for serialization
+ * @param value The value to check
+ * @return YES if the value needs quoting
+ */
++ (BOOL)needsQuoting:(NSString *)value;
+
+/**
+ * Quote a value for serialization
+ * @param value The value to quote
+ * @return The quoted value with proper escaping
+ */
++ (NSString *)quoteValue:(NSString *)value;
 
 @end
 
