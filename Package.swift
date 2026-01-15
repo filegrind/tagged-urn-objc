@@ -10,20 +10,20 @@ let package = Package(
     products: [
         .library(
             name: "TaggedUrn",
-            targets: ["CapNs"]),
+            targets: ["TaggedUrn"]),
     ],
     targets: [
         .target(
-            name: "CapNs",
+            name: "TaggedUrn",
             dependencies: [],
-            path: "Sources/CapNs",
+            path: "Sources/TaggedUrn",
             publicHeadersPath: "include",
             linkerSettings: [
                 .linkedFramework("Foundation")
             ]
         ),
         .testTarget(
-            name: "CapNsTests",
-            dependencies: ["CapNs"]),
+            name: "TaggedUrnTests",
+            dependencies: ["TaggedUrn"]),
     ]
 )

@@ -880,14 +880,14 @@
 
 - (void)testMatchingSemantics_Test7_FallbackPattern {
     // Test 7: Fallback pattern
-    // URN:     cap:op=generate_thumbnail;out=std:binary.v1
-    // Request: cap:op=generate_thumbnail;out=std:binary.v1;ext=wav
+    // URN:     cap:op=generate_thumbnail;out=media:type=binary;v=1
+    // Request: cap:op=generate_thumbnail;out=media:type=binary;v=1;ext=wav
     // Result:  MATCH (URN has implicit ext=*)
     NSError *error = nil;
-    CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:op=generate_thumbnail;out=std:binary.v1" error:&error];
+    CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:op=generate_thumbnail;out=media:type=binary;v=1" error:&error];
     XCTAssertNotNil(urn);
 
-    CSTaggedUrn *request = [CSTaggedUrn fromString:@"cap:op=generate_thumbnail;out=std:binary.v1;ext=wav" error:&error];
+    CSTaggedUrn *request = [CSTaggedUrn fromString:@"cap:op=generate_thumbnail;out=media:type=binary;v=1;ext=wav" error:&error];
     XCTAssertNotNil(request);
 
     BOOL matches = [urn matches:request error:&error];
