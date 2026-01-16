@@ -158,6 +158,23 @@ typedef NS_ENUM(NSInteger, CSParseState) {
                         return nil;
                     }
                     state = CSParseStateExpectingValue;
+                } else if (c == ';') {
+                    // Value-less tag: treat as wildcard
+                    if (currentKey.length == 0) {
+                        if (error) {
+                            *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                                         code:CSTaggedUrnErrorEmptyTag
+                                                     userInfo:@{NSLocalizedDescriptionKey: @"empty key"}];
+                        }
+                        return nil;
+                    }
+                    [currentValue setString:@"*"];
+                    if (![self finishTag:tags key:currentKey value:currentValue error:error]) {
+                        return nil;
+                    }
+                    [currentKey setString:@""];
+                    [currentValue setString:@""];
+                    state = CSParseStateExpectingKey;
                 } else if ([self isValidKeyChar:c]) {
                     [currentKey appendFormat:@"%c", tolower(c)];
                 } else {
@@ -280,12 +297,20 @@ typedef NS_ENUM(NSInteger, CSParseState) {
             }
             return nil;
         case CSParseStateInKey:
-            if (error) {
-                *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
-                                             code:CSTaggedUrnErrorInvalidTagFormat
-                                         userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"incomplete tag '%@'", currentKey]}];
+            // Value-less tag at end: treat as wildcard
+            if (currentKey.length == 0) {
+                if (error) {
+                    *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                                 code:CSTaggedUrnErrorEmptyTag
+                                             userInfo:@{NSLocalizedDescriptionKey: @"empty key"}];
+                }
+                return nil;
             }
-            return nil;
+            [currentValue setString:@"*"];
+            if (![self finishTag:tags key:currentKey value:currentValue error:error]) {
+                return nil;
+            }
+            break;
         case CSParseStateExpectingValue:
             if (error) {
                 *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
@@ -591,7 +616,10 @@ typedef NS_ENUM(NSInteger, CSParseState) {
     NSMutableArray<NSString *> *parts = [NSMutableArray array];
     for (NSString *key in sortedKeys) {
         NSString *value = self.mutableTags[key];
-        if ([CSTaggedUrn needsQuoting:value]) {
+        if ([value isEqualToString:@"*"]) {
+            // Value-less tag: output just the key
+            [parts addObject:key];
+        } else if ([CSTaggedUrn needsQuoting:value]) {
             [parts addObject:[NSString stringWithFormat:@"%@=%@", key, [CSTaggedUrn quoteValue:value]]];
         } else {
             [parts addObject:[NSString stringWithFormat:@"%@=%@", key, value]];

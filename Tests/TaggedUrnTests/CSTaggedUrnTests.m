@@ -124,13 +124,15 @@
     XCTAssertEqual(error.code, CSTaggedUrnErrorInvalidFormat);
 }
 
-- (void)testInvalidTagFormat {
+- (void)testValuelessTagParsing {
+    // Value-less tag is now valid and treated as wildcard
     NSError *error;
-    CSTaggedUrn *taggedUrn = [CSTaggedUrn fromString:@"cap:invalid_tag" error:&error];
+    CSTaggedUrn *taggedUrn = [CSTaggedUrn fromString:@"cap:optimize" error:&error];
 
-    XCTAssertNil(taggedUrn);
-    XCTAssertNotNil(error);
-    XCTAssertEqual(error.code, CSTaggedUrnErrorInvalidTagFormat);
+    XCTAssertNotNil(taggedUrn);
+    XCTAssertNil(error);
+    XCTAssertEqualObjects([taggedUrn getTag:@"optimize"], @"*");
+    XCTAssertEqualObjects([taggedUrn toString], @"cap:optimize");
 }
 
 - (void)testInvalidCharacters {
@@ -314,7 +316,8 @@
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:ext=pdf" error:&error];
     CSTaggedUrn *wildcarded = [urn withWildcardTag:@"ext"];
 
-    XCTAssertEqualObjects([wildcarded toString], @"cap:ext=*");
+    // Wildcard serializes as value-less tag
+    XCTAssertEqualObjects([wildcarded toString], @"cap:ext");
 
     // Test that wildcarded urn can match more requests
     CSTaggedUrn *request = [CSTaggedUrn fromString:@"cap:ext=jpg" error:&error];
@@ -322,7 +325,7 @@
     XCTAssertNil(error);
     XCTAssertFalse(matches);
 
-    CSTaggedUrn *wildcardRequest = [CSTaggedUrn fromString:@"cap:ext=*" error:&error];
+    CSTaggedUrn *wildcardRequest = [CSTaggedUrn fromString:@"cap:ext" error:&error];
     matches = [wildcarded matches:wildcardRequest error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches);
@@ -927,6 +930,208 @@
     BOOL matches = [urn matches:request error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches, @"Test 9: Cross-dimension independence should match");
+}
+
+#pragma mark - Value-less Tag Tests
+
+// ============================================================================
+// VALUE-LESS TAG TESTS
+// Value-less tags are equivalent to wildcard tags (key=*)
+// ============================================================================
+
+- (void)testValuelessTagParsingSingle {
+    // Single value-less tag
+    NSError *error = nil;
+    CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:optimize" error:&error];
+    XCTAssertNotNil(urn);
+    XCTAssertNil(error);
+    XCTAssertEqualObjects([urn getTag:@"optimize"], @"*");
+    // Serializes as value-less (no =*)
+    XCTAssertEqualObjects([urn toString], @"cap:optimize");
+}
+
+- (void)testValuelessTagParsingMultiple {
+    // Multiple value-less tags
+    NSError *error = nil;
+    CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:fast;optimize;secure" error:&error];
+    XCTAssertNotNil(urn);
+    XCTAssertNil(error);
+    XCTAssertEqualObjects([urn getTag:@"fast"], @"*");
+    XCTAssertEqualObjects([urn getTag:@"optimize"], @"*");
+    XCTAssertEqualObjects([urn getTag:@"secure"], @"*");
+    // Serializes alphabetically as value-less
+    XCTAssertEqualObjects([urn toString], @"cap:fast;optimize;secure");
+}
+
+- (void)testValuelessTagMixedWithValued {
+    // Mix of value-less and valued tags
+    NSError *error = nil;
+    CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:op=generate;optimize;ext=pdf;secure" error:&error];
+    XCTAssertNotNil(urn);
+    XCTAssertNil(error);
+    XCTAssertEqualObjects([urn getTag:@"op"], @"generate");
+    XCTAssertEqualObjects([urn getTag:@"optimize"], @"*");
+    XCTAssertEqualObjects([urn getTag:@"ext"], @"pdf");
+    XCTAssertEqualObjects([urn getTag:@"secure"], @"*");
+    // Serializes alphabetically
+    XCTAssertEqualObjects([urn toString], @"cap:ext=pdf;op=generate;optimize;secure");
+}
+
+- (void)testValuelessTagAtEnd {
+    // Value-less tag at the end (no trailing semicolon)
+    NSError *error = nil;
+    CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:op=generate;optimize" error:&error];
+    XCTAssertNotNil(urn);
+    XCTAssertNil(error);
+    XCTAssertEqualObjects([urn getTag:@"op"], @"generate");
+    XCTAssertEqualObjects([urn getTag:@"optimize"], @"*");
+    XCTAssertEqualObjects([urn toString], @"cap:op=generate;optimize");
+}
+
+- (void)testValuelessTagEquivalenceToWildcard {
+    // Value-less tag is equivalent to explicit wildcard
+    NSError *error = nil;
+    CSTaggedUrn *valueless = [CSTaggedUrn fromString:@"cap:ext" error:&error];
+    XCTAssertNotNil(valueless);
+    CSTaggedUrn *wildcard = [CSTaggedUrn fromString:@"cap:ext=*" error:&error];
+    XCTAssertNotNil(wildcard);
+    XCTAssertEqualObjects(valueless, wildcard);
+    // Both serialize to value-less form
+    XCTAssertEqualObjects([valueless toString], @"cap:ext");
+    XCTAssertEqualObjects([wildcard toString], @"cap:ext");
+}
+
+- (void)testValuelessTagMatching {
+    // Value-less tag (wildcard) matches any value
+    NSError *error = nil;
+    CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:op=generate;ext" error:&error];
+    XCTAssertNotNil(urn);
+
+    CSTaggedUrn *requestPdf = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
+    CSTaggedUrn *requestDocx = [CSTaggedUrn fromString:@"cap:op=generate;ext=docx" error:&error];
+    CSTaggedUrn *requestAny = [CSTaggedUrn fromString:@"cap:op=generate;ext=anything" error:&error];
+
+    BOOL matches;
+    matches = [urn matches:requestPdf error:&error];
+    XCTAssertNil(error);
+    XCTAssertTrue(matches);
+
+    matches = [urn matches:requestDocx error:&error];
+    XCTAssertNil(error);
+    XCTAssertTrue(matches);
+
+    matches = [urn matches:requestAny error:&error];
+    XCTAssertNil(error);
+    XCTAssertTrue(matches);
+}
+
+- (void)testValuelessTagInRequest {
+    // Request with value-less tag matches any URN value
+    NSError *error = nil;
+    CSTaggedUrn *request = [CSTaggedUrn fromString:@"cap:op=generate;ext" error:&error];
+    XCTAssertNotNil(request);
+
+    CSTaggedUrn *urnPdf = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
+    CSTaggedUrn *urnDocx = [CSTaggedUrn fromString:@"cap:op=generate;ext=docx" error:&error];
+    CSTaggedUrn *urnMissing = [CSTaggedUrn fromString:@"cap:op=generate" error:&error];
+
+    BOOL matches;
+    matches = [urnPdf matches:request error:&error];
+    XCTAssertNil(error);
+    XCTAssertTrue(matches);
+
+    matches = [urnDocx matches:request error:&error];
+    XCTAssertNil(error);
+    XCTAssertTrue(matches);
+
+    matches = [urnMissing matches:request error:&error];
+    XCTAssertNil(error);
+    XCTAssertTrue(matches); // Missing = implicit wildcard
+}
+
+- (void)testValuelessTagSpecificity {
+    // Value-less tags (wildcards) don't count towards specificity
+    NSError *error = nil;
+    CSTaggedUrn *urn1 = [CSTaggedUrn fromString:@"cap:op=generate" error:&error];
+    CSTaggedUrn *urn2 = [CSTaggedUrn fromString:@"cap:op=generate;optimize" error:&error];
+    CSTaggedUrn *urn3 = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
+
+    XCTAssertEqual([urn1 specificity], 1);
+    XCTAssertEqual([urn2 specificity], 1); // optimize is wildcard, doesn't count
+    XCTAssertEqual([urn3 specificity], 2);
+}
+
+- (void)testValuelessTagRoundtrip {
+    // Round-trip parsing and serialization
+    NSError *error = nil;
+    NSString *original = @"cap:ext=pdf;op=generate;optimize;secure";
+    CSTaggedUrn *urn = [CSTaggedUrn fromString:original error:&error];
+    XCTAssertNotNil(urn);
+    NSString *serialized = [urn toString];
+    CSTaggedUrn *reparsed = [CSTaggedUrn fromString:serialized error:&error];
+    XCTAssertNotNil(reparsed);
+    XCTAssertEqualObjects(urn, reparsed);
+    XCTAssertEqualObjects(serialized, original);
+}
+
+- (void)testValuelessTagCaseNormalization {
+    // Value-less tags are normalized to lowercase like other keys
+    NSError *error = nil;
+    CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:OPTIMIZE;Fast;SECURE" error:&error];
+    XCTAssertNotNil(urn);
+    XCTAssertNil(error);
+    XCTAssertEqualObjects([urn getTag:@"optimize"], @"*");
+    XCTAssertEqualObjects([urn getTag:@"fast"], @"*");
+    XCTAssertEqualObjects([urn getTag:@"secure"], @"*");
+    XCTAssertEqualObjects([urn toString], @"cap:fast;optimize;secure");
+}
+
+- (void)testEmptyValueStillError {
+    // Empty value with = is still an error (different from value-less)
+    NSError *error = nil;
+    CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:key=" error:&error];
+    XCTAssertNil(urn);
+    XCTAssertNotNil(error);
+
+    error = nil;
+    CSTaggedUrn *urn2 = [CSTaggedUrn fromString:@"cap:key=;other=value" error:&error];
+    XCTAssertNil(urn2);
+    XCTAssertNotNil(error);
+}
+
+- (void)testValuelessTagCompatibility {
+    // Value-less tags are compatible with any value
+    NSError *error = nil;
+    CSTaggedUrn *urn1 = [CSTaggedUrn fromString:@"cap:op=generate;ext" error:&error];
+    CSTaggedUrn *urn2 = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
+    CSTaggedUrn *urn3 = [CSTaggedUrn fromString:@"cap:op=generate;ext=docx" error:&error];
+
+    BOOL compatible;
+    compatible = [urn1 isCompatibleWith:urn2 error:&error];
+    XCTAssertNil(error);
+    XCTAssertTrue(compatible);
+
+    compatible = [urn1 isCompatibleWith:urn3 error:&error];
+    XCTAssertNil(error);
+    XCTAssertTrue(compatible);
+
+    // But urn2 and urn3 are not compatible (different specific values)
+    compatible = [urn2 isCompatibleWith:urn3 error:&error];
+    XCTAssertNil(error);
+    XCTAssertFalse(compatible);
+}
+
+- (void)testValuelessNumericKeyStillRejected {
+    // Purely numeric keys are still rejected for value-less tags
+    NSError *error = nil;
+    CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:123" error:&error];
+    XCTAssertNil(urn);
+    XCTAssertNotNil(error);
+
+    error = nil;
+    CSTaggedUrn *urn2 = [CSTaggedUrn fromString:@"cap:op=generate;456" error:&error];
+    XCTAssertNil(urn2);
+    XCTAssertNotNil(error);
 }
 
 @end

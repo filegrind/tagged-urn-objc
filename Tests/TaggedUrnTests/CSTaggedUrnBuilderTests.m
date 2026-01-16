@@ -167,8 +167,8 @@
     XCTAssertNotNil(urn);
     XCTAssertNil(error);
 
-    // Alphabetical order: ext, op, quality
-    XCTAssertEqualObjects([urn toString], @"cap:ext=*;op=convert;quality=*");
+    // Alphabetical order: ext, op, quality (wildcards serialize as value-less)
+    XCTAssertEqualObjects([urn toString], @"cap:ext;op=convert;quality");
     XCTAssertEqual([urn specificity], 1); // Only op is specific
 
     XCTAssertEqualObjects([urn getTag:@"ext"], @"*");
