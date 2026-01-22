@@ -15,7 +15,7 @@
 
 - (void)testTaggedUrnCreation {
     NSError *error;
-    CSTaggedUrn *taggedUrn = [CSTaggedUrn fromString:@"cap:op=transform;format=json;type=data_processing" error:&error];
+    CSTaggedUrn *taggedUrn = [CSTaggedUrn fromString:@"cap:op=transform;format=json;data_processing" error:&error];
 
     XCTAssertNotNil(taggedUrn);
     XCTAssertNil(error);
@@ -368,7 +368,7 @@
     NSError *error;
     CSTaggedUrn *urn1 = [CSTaggedUrn fromString:@"cap:op=generate" error:&error];
     CSTaggedUrn *urn2 = [CSTaggedUrn fromString:@"cap:op=generate" error:&error]; // different order
-    CSTaggedUrn *urn3 = [CSTaggedUrn fromString:@"cap:op=generate;type=image" error:&error];
+    CSTaggedUrn *urn3 = [CSTaggedUrn fromString:@"cap:op=generate;image" error:&error];
 
     XCTAssertEqualObjects(urn1, urn2); // order doesn't matter
     XCTAssertNotEqualObjects(urn1, urn3);
@@ -883,14 +883,14 @@
 
 - (void)testMatchingSemantics_Test7_FallbackPattern {
     // Test 7: Fallback pattern
-    // URN:     cap:op=generate_thumbnail;out="media:type=binary;v=1"
-    // Request: cap:ext=wav;op=generate_thumbnail;out="media:type=binary;v=1"
+    // URN:     cap:op=generate_thumbnail;out="media:binary"
+    // Request: cap:ext=wav;op=generate_thumbnail;out="media:binary"
     // Result:  MATCH (URN has implicit ext=*)
     NSError *error = nil;
-    CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:op=generate_thumbnail;out=\"media:type=binary;v=1\"" error:&error];
+    CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:op=generate_thumbnail;out=\"media:binary\"" error:&error];
     XCTAssertNotNil(urn);
 
-    CSTaggedUrn *request = [CSTaggedUrn fromString:@"cap:ext=wav;op=generate_thumbnail;out=\"media:type=binary;v=1\"" error:&error];
+    CSTaggedUrn *request = [CSTaggedUrn fromString:@"cap:ext=wav;op=generate_thumbnail;out=\"media:binary\"" error:&error];
     XCTAssertNotNil(request);
 
     BOOL matches = [urn matches:request error:&error];

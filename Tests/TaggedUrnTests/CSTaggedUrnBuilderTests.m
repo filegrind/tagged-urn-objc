@@ -24,7 +24,7 @@
     XCTAssertNotNil(taggedUrn);
     XCTAssertNil(error);
     // Alphabetical order: format, op, type
-    XCTAssertEqualObjects([taggedUrn toString], @"cap:format=json;op=transform;type=data_processing");
+    XCTAssertEqualObjects([taggedUrn toString], @"cap:format=json;op=transform;data_processing");
 }
 
 - (void)testBuilderFluentAPI {
@@ -119,7 +119,7 @@
     XCTAssertNotNil(urn);
     XCTAssertNil(error);
 
-    XCTAssertEqualObjects([urn toString], @"cap:type=utility");
+    XCTAssertEqualObjects([urn toString], @"cap:utility");
     XCTAssertEqualObjects([urn getTag:@"type"], @"utility");
     XCTAssertEqual([urn specificity], 1);
 }
@@ -141,7 +141,7 @@
     XCTAssertNil(error);
 
     // Alphabetical order: codec, format, framerate, op, output, quality, target, type
-    NSString *expected = @"cap:codec=h264;format=mp4;framerate=30fps;op=transcode;output=binary;quality=1080p;target=video;type=media";
+    NSString *expected = @"cap:codec=h264;format=mp4;framerate=30fps;op=transcode;output=binary;quality=1080p;target=video;media";
     XCTAssertEqualObjects([urn toString], expected);
 
     XCTAssertEqualObjects([urn getTag:@"type"], @"media");
