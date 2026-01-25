@@ -3,7 +3,16 @@
 //  Flat Tag-Based URN Identifier System
 //
 //  This provides a flat, tag-based tagged URN system with configurable prefix,
-//  wildcard support, and specificity comparison.
+//  pattern matching, and graded specificity comparison.
+//
+//  Special pattern values:
+//    K=v  - Must have key K with exact value v
+//    K=*  - Must have key K with any value (presence required)
+//    K=!  - Must NOT have key K (absence required)
+//    K=?  - No constraint on key K (explicit don't-care)
+//    (missing) - Same as K=? - no constraint
+//
+//  Value-less tags (e.g., "flag") are parsed as "flag=*" (must-have-any).
 //
 
 #import <Foundation/Foundation.h>
@@ -14,9 +23,9 @@ NS_ASSUME_NONNULL_BEGIN
  * A tagged URN using flat, ordered tags with a configurable prefix
  *
  * Examples:
- * - cap:op=generate;ext=pdf;output=binary;target=thumbnail
- * - myapp:key="Value With Spaces"
- * - custom:a=1;b=2
+ *   cap:op=generate;ext=pdf;output=binary;target=thumbnail
+ *   cap:format=*;debug=!  (format required, debug forbidden)
+ *   myapp:key="Value With Spaces"
  */
 @interface CSTaggedUrn : NSObject <NSCopying, NSSecureCoding>
 
@@ -81,7 +90,15 @@ NS_ASSUME_NONNULL_BEGIN
 - (CSTaggedUrn * _Nonnull)withoutTag:(NSString * _Nonnull)key;
 
 /**
- * Check if this URN matches another based on tag compatibility
+ * Check if this URN (instance) matches a pattern based on tag compatibility
+ *
+ * Per-tag matching semantics:
+ *   Pattern (missing) or K=?  → always matches
+ *   Pattern K=!               → instance must NOT have K
+ *   Pattern K=*               → instance must have K with any value
+ *   Pattern K=v               → instance must have K with exact value v
+ *
+ * Special values work symmetrically on both instance and pattern sides.
  *
  * IMPORTANT: Both URNs must have the same prefix. Comparing URNs with
  * different prefixes is a programming error and will return NO with an error.
