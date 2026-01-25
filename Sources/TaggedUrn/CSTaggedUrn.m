@@ -42,7 +42,7 @@ typedef NS_ENUM(NSInteger, CSParseState) {
 
 + (BOOL)isValidUnquotedValueChar:(unichar)c {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
-           c == '_' || c == '-' || c == '/' || c == ':' || c == '.' || c == '*';
+           c == '_' || c == '-' || c == '/' || c == ':' || c == '.' || c == '*' || c == '?' || c == '!';
 }
 
 + (BOOL)isPurelyNumeric:(NSString *)s {
@@ -423,54 +423,85 @@ typedef NS_ENUM(NSInteger, CSParseState) {
     return [CSTaggedUrn fromPrefix:self.mutablePrefix tagsInternal:newTags error:nil];
 }
 
-- (BOOL)matches:(CSTaggedUrn *)request error:(NSError **)error {
-    if (!request) {
+/// Check if instance value matches pattern constraint
+/// See Rust implementation for full truth table
++ (BOOL)valuesMatchInst:(NSString *)inst patt:(NSString *)patt {
+    // Pattern has no constraint (no entry or explicit ?)
+    if (patt == nil || [patt isEqualToString:@"?"]) {
+        return YES;
+    }
+
+    // Instance doesn't care (explicit ?)
+    if ([inst isEqualToString:@"?"]) {
+        return YES;
+    }
+
+    // Pattern: must-not-have (!)
+    if ([patt isEqualToString:@"!"]) {
+        if (inst == nil) {
+            return YES; // Instance absent, pattern wants absent
+        }
+        if ([inst isEqualToString:@"!"]) {
+            return YES; // Both say absent
+        }
+        return NO; // Instance has value, pattern wants absent
+    }
+
+    // Instance: must-not-have conflicts with pattern wanting value
+    if ([inst isEqualToString:@"!"]) {
+        return NO; // Conflict: absent vs value or present
+    }
+
+    // Pattern: must-have-any (*)
+    if ([patt isEqualToString:@"*"]) {
+        if (inst == nil) {
+            return NO; // Instance missing, pattern wants present
+        }
+        return YES; // Instance has value, pattern wants any
+    }
+
+    // Pattern: exact value
+    if (inst == nil) {
+        return NO; // Instance missing, pattern wants value
+    }
+    if ([inst isEqualToString:@"*"]) {
+        return YES; // Instance accepts any, pattern's value is fine
+    }
+    return [inst isEqualToString:patt]; // Both have values, must match exactly
+}
+
+- (BOOL)matches:(CSTaggedUrn *)pattern error:(NSError **)error {
+    if (!pattern) {
         if (error) {
             *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
                                          code:CSTaggedUrnErrorInvalidFormat
-                                     userInfo:@{NSLocalizedDescriptionKey: @"Cannot match against nil request"}];
+                                     userInfo:@{NSLocalizedDescriptionKey: @"Cannot match against nil pattern"}];
         }
         return NO;
     }
 
     // First check prefix - must match exactly
-    if (![self.mutablePrefix isEqualToString:request.mutablePrefix]) {
+    if (![self.mutablePrefix isEqualToString:pattern.mutablePrefix]) {
         if (error) {
             *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
                                          code:CSTaggedUrnErrorPrefixMismatch
-                                     userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Cannot compare URNs with different prefixes: '%@' vs '%@'", self.mutablePrefix, request.mutablePrefix]}];
+                                     userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Cannot compare URNs with different prefixes: '%@' vs '%@'", self.mutablePrefix, pattern.mutablePrefix]}];
         }
         return NO;
     }
 
-    // Check all tags that the request specifies
-    for (NSString *requestKey in request.tags) {
-        NSString *requestValue = request.tags[requestKey];
-        NSString *urnValue = self.mutableTags[requestKey];
+    // Collect all keys from both instance and pattern
+    NSMutableSet<NSString *> *allKeys = [NSMutableSet setWithArray:self.mutableTags.allKeys];
+    [allKeys addObjectsFromArray:pattern.mutableTags.allKeys];
 
-        if (!urnValue) {
-            // Missing tag in URN is treated as wildcard - can handle any value
-            continue;
-        }
+    for (NSString *key in allKeys) {
+        NSString *inst = self.mutableTags[key];
+        NSString *patt = pattern.mutableTags[key];
 
-        if ([urnValue isEqualToString:@"*"]) {
-            // URN has wildcard - can handle any value
-            continue;
-        }
-
-        if ([requestValue isEqualToString:@"*"]) {
-            // Request accepts any value - URN's specific value matches
-            continue;
-        }
-
-        if (![urnValue isEqualToString:requestValue]) {
-            // URN has specific value that doesn't match request's specific value
+        if (![CSTaggedUrn valuesMatchInst:inst patt:patt]) {
             return NO;
         }
     }
-
-    // If URN has additional specific tags that request doesn't specify, that's fine
-    // The URN is just more specific than needed
     return YES;
 }
 
@@ -478,14 +509,45 @@ typedef NS_ENUM(NSInteger, CSParseState) {
     return [self matches:request error:error];
 }
 
+/// Calculate specificity score for URN matching
+/// Graded scoring:
+/// - K=v (exact value): 3 points (most specific)
+/// - K=* (must-have-any): 2 points
+/// - K=! (must-not-have): 1 point
+/// - K=? (unspecified): 0 points (least specific)
 - (NSUInteger)specificity {
-    NSUInteger count = 0;
+    NSUInteger score = 0;
     for (NSString *value in self.mutableTags.allValues) {
-        if (![value isEqualToString:@"*"]) {
-            count++;
+        if ([value isEqualToString:@"?"]) {
+            score += 0;
+        } else if ([value isEqualToString:@"!"]) {
+            score += 1;
+        } else if ([value isEqualToString:@"*"]) {
+            score += 2;
+        } else {
+            score += 3; // exact value
         }
     }
-    return count;
+    return score;
+}
+
+/// Get specificity as a tuple for tie-breaking
+/// Returns (exact_count, must_have_any_count, must_not_count)
+- (void)specificityTupleExact:(NSUInteger *)exact mustHaveAny:(NSUInteger *)mustHaveAny mustNot:(NSUInteger *)mustNot {
+    *exact = 0;
+    *mustHaveAny = 0;
+    *mustNot = 0;
+    for (NSString *value in self.mutableTags.allValues) {
+        if ([value isEqualToString:@"?"]) {
+            // 0 points, not counted
+        } else if ([value isEqualToString:@"!"]) {
+            (*mustNot)++;
+        } else if ([value isEqualToString:@"*"]) {
+            (*mustHaveAny)++;
+        } else {
+            (*exact)++;
+        }
+    }
 }
 
 - (BOOL)isMoreSpecificThan:(CSTaggedUrn *)other error:(NSError **)error {
@@ -520,6 +582,40 @@ typedef NS_ENUM(NSInteger, CSParseState) {
     return self.specificity > other.specificity;
 }
 
+/// Check if two pattern values are compatible (could match the same instance)
++ (BOOL)valuesCompatibleV1:(NSString *)v1 v2:(NSString *)v2 {
+    // Either missing or ? means no constraint - compatible with anything
+    if (v1 == nil || v2 == nil) {
+        return YES;
+    }
+    if ([v1 isEqualToString:@"?"] || [v2 isEqualToString:@"?"]) {
+        return YES;
+    }
+
+    // Both are ! - compatible (both want absent)
+    if ([v1 isEqualToString:@"!"] && [v2 isEqualToString:@"!"]) {
+        return YES;
+    }
+
+    // One is ! and other is value or * - NOT compatible
+    if ([v1 isEqualToString:@"!"] || [v2 isEqualToString:@"!"]) {
+        return NO;
+    }
+
+    // Both are * - compatible
+    if ([v1 isEqualToString:@"*"] && [v2 isEqualToString:@"*"]) {
+        return YES;
+    }
+
+    // One is * and other is value - compatible (value matches *)
+    if ([v1 isEqualToString:@"*"] || [v2 isEqualToString:@"*"]) {
+        return YES;
+    }
+
+    // Both are specific values - must be equal
+    return [v1 isEqualToString:v2];
+}
+
 - (BOOL)isCompatibleWith:(CSTaggedUrn *)other error:(NSError **)error {
     if (!other) {
         if (error) {
@@ -548,13 +644,9 @@ typedef NS_ENUM(NSInteger, CSParseState) {
         NSString *v1 = self.mutableTags[key];
         NSString *v2 = other.mutableTags[key];
 
-        if (v1 && v2) {
-            // Both have the tag - they must match or one must be wildcard
-            if (![v1 isEqualToString:@"*"] && ![v2 isEqualToString:@"*"] && ![v1 isEqualToString:v2]) {
-                return NO;
-            }
+        if (![CSTaggedUrn valuesCompatibleV1:v1 v2:v2]) {
+            return NO;
         }
-        // If only one has the tag, it's compatible (missing tag is wildcard)
     }
 
     return YES;
@@ -617,8 +709,14 @@ typedef NS_ENUM(NSInteger, CSParseState) {
     for (NSString *key in sortedKeys) {
         NSString *value = self.mutableTags[key];
         if ([value isEqualToString:@"*"]) {
-            // Value-less tag: output just the key
+            // Valueless sugar: key
             [parts addObject:key];
+        } else if ([value isEqualToString:@"?"]) {
+            // Explicit: key=?
+            [parts addObject:[NSString stringWithFormat:@"%@=?", key]];
+        } else if ([value isEqualToString:@"!"]) {
+            // Explicit: key=!
+            [parts addObject:[NSString stringWithFormat:@"%@=!", key]];
         } else if ([CSTaggedUrn needsQuoting:value]) {
             [parts addObject:[NSString stringWithFormat:@"%@=%@", key, [CSTaggedUrn quoteValue:value]]];
         } else {

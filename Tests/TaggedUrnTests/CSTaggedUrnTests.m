@@ -21,7 +21,8 @@
     XCTAssertNil(error);
 
     XCTAssertEqualObjects(taggedUrn.prefix, @"cap");
-    XCTAssertEqualObjects([taggedUrn getTag:@"type"], @"data_processing");
+    // data_processing is a valueless tag, stored as * (must-have-any)
+    XCTAssertEqualObjects([taggedUrn getTag:@"data_processing"], @"*");
     XCTAssertEqualObjects([taggedUrn getTag:@"op"], @"transform");
     XCTAssertEqualObjects([taggedUrn getTag:@"format"], @"json");
 }
@@ -187,36 +188,43 @@
 }
 
 - (void)testMissingTagHandling {
+    // NEW SEMANTICS: Missing tag in instance means the tag doesn't exist.
+    // Pattern constraints must be satisfied by instance.
     NSError *error;
-    CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:op=generate" error:&error];
+    CSTaggedUrn *instance = [CSTaggedUrn fromString:@"cap:op=generate" error:&error];
 
-    // Request with tag should match urn without tag (treated as wildcard)
-    CSTaggedUrn *request1 = [CSTaggedUrn fromString:@"cap:ext=pdf" error:&error];
-    BOOL matches = [urn matches:request1 error:&error];
+    // Pattern with tag that instance doesn't have: NO MATCH
+    CSTaggedUrn *pattern1 = [CSTaggedUrn fromString:@"cap:ext=pdf" error:&error];
+    BOOL matches = [instance matches:pattern1 error:&error];
     XCTAssertNil(error);
-    XCTAssertTrue(matches); // urn missing ext tag = wildcard, can handle any ext
+    XCTAssertFalse(matches); // Instance missing ext, pattern wants ext=pdf
 
-    // But urn with extra tags can match subset requests
-    CSTaggedUrn *urn2 = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
-    CSTaggedUrn *request2 = [CSTaggedUrn fromString:@"cap:op=generate" error:&error];
-    matches = [urn2 matches:request2 error:&error];
+    // Pattern missing tag = no constraint: MATCH
+    CSTaggedUrn *instance2 = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
+    CSTaggedUrn *pattern2 = [CSTaggedUrn fromString:@"cap:op=generate" error:&error];
+    matches = [instance2 matches:pattern2 error:&error];
     XCTAssertNil(error);
-    XCTAssertTrue(matches);
+    XCTAssertTrue(matches); // Instance has ext=pdf, pattern doesn't constrain ext
 }
 
 - (void)testSpecificity {
+    // NEW GRADED SPECIFICITY:
+    // K=v (exact value): 3 points
+    // K=* (must-have-any): 2 points
+    // K=! (must-not-have): 1 point
+    // K=? (unspecified): 0 points
     NSError *error;
-    CSTaggedUrn *urn1 = [CSTaggedUrn fromString:@"cap:op=*" error:&error];
-    CSTaggedUrn *urn2 = [CSTaggedUrn fromString:@"cap:op=generate" error:&error];
-    CSTaggedUrn *urn3 = [CSTaggedUrn fromString:@"cap:op=*;ext=pdf" error:&error];
+    CSTaggedUrn *urn1 = [CSTaggedUrn fromString:@"cap:op=*" error:&error]; // * = 2
+    CSTaggedUrn *urn2 = [CSTaggedUrn fromString:@"cap:op=generate" error:&error]; // exact = 3
+    CSTaggedUrn *urn3 = [CSTaggedUrn fromString:@"cap:op=*;ext=pdf" error:&error]; // * + exact = 2 + 3 = 5
 
-    XCTAssertEqual([urn1 specificity], 0); // wildcard doesn't count
-    XCTAssertEqual([urn2 specificity], 1);
-    XCTAssertEqual([urn3 specificity], 1); // only ext=pdf counts, op=* doesn't count
+    XCTAssertEqual([urn1 specificity], 2); // * = 2
+    XCTAssertEqual([urn2 specificity], 3); // exact = 3
+    XCTAssertEqual([urn3 specificity], 5); // * + exact = 2 + 3 = 5
 
     BOOL moreSpecific = [urn2 isMoreSpecificThan:urn1 error:&error];
     XCTAssertNil(error);
-    XCTAssertTrue(moreSpecific);
+    XCTAssertTrue(moreSpecific); // 3 > 2
 }
 
 - (void)testCompatibility {
@@ -433,21 +441,31 @@
 #pragma mark - New Rule Tests
 
 - (void)testEmptyTaggedUrn {
+    // Empty tagged URN is valid
     NSError *error = nil;
-    // Empty tagged URN should be valid and match everything
     CSTaggedUrn *empty = [CSTaggedUrn fromString:@"cap:" error:&error];
     XCTAssertNotNil(empty);
     XCTAssertNil(error);
     XCTAssertEqual(empty.tags.count, 0);
     XCTAssertEqualObjects([empty toString], @"cap:");
 
+    // NEW SEMANTICS:
+    // Empty PATTERN matches any INSTANCE (pattern has no constraints)
+    // Empty INSTANCE only matches patterns that have no required tags
     error = nil;
-    // Should match any other urn with same prefix
     CSTaggedUrn *specific = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
+
+    // Empty instance vs specific pattern: NO MATCH
     BOOL matches = [empty matches:specific error:&error];
     XCTAssertNil(error);
-    XCTAssertTrue(matches);
+    XCTAssertFalse(matches); // Empty instance doesn't match pattern with requirements
 
+    // Specific instance vs empty pattern: MATCH
+    matches = [specific matches:empty error:&error];
+    XCTAssertNil(error);
+    XCTAssertTrue(matches); // Instance matches empty pattern
+
+    // Empty instance vs empty pattern: MATCH
     matches = [empty matches:empty error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches);
@@ -796,21 +814,30 @@
     XCTAssertTrue(matches, @"Test 1: Exact match should succeed");
 }
 
-- (void)testMatchingSemantics_Test2_UrnMissingTag {
-    // Test 2: URN missing tag (implicit wildcard)
-    // URN:     cap:op=generate
-    // Request: cap:op=generate;ext=pdf
-    // Result:  MATCH (URN can handle any ext)
+- (void)testMatchingSemantics_Test2_InstanceMissingTag {
+    // Test 2: Instance missing tag
+    // Instance: cap:op=generate
+    // Pattern:  cap:op=generate;ext=pdf
+    // Result:   NO MATCH (pattern requires ext=pdf, instance doesn't have ext)
+    //
+    // NEW SEMANTICS: Missing tag in instance means it doesn't exist.
     NSError *error = nil;
-    CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:op=generate" error:&error];
-    XCTAssertNotNil(urn);
+    CSTaggedUrn *instance = [CSTaggedUrn fromString:@"cap:op=generate" error:&error];
+    XCTAssertNotNil(instance);
 
-    CSTaggedUrn *request = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
-    XCTAssertNotNil(request);
+    CSTaggedUrn *pattern = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
+    XCTAssertNotNil(pattern);
 
-    BOOL matches = [urn matches:request error:&error];
+    BOOL matches = [instance matches:pattern error:&error];
     XCTAssertNil(error);
-    XCTAssertTrue(matches, @"Test 2: URN missing tag should match (implicit wildcard)");
+    XCTAssertFalse(matches, @"Test 2: Instance missing tag should NOT match when pattern requires it");
+
+    // To accept any ext (or missing), use pattern with ext=?
+    CSTaggedUrn *patternOptional = [CSTaggedUrn fromString:@"cap:op=generate;ext=?" error:&error];
+    XCTAssertNotNil(patternOptional);
+    matches = [instance matches:patternOptional error:&error];
+    XCTAssertNil(error);
+    XCTAssertTrue(matches, @"Pattern with ext=? should match instance without ext");
 }
 
 - (void)testMatchingSemantics_Test3_UrnHasExtraTag {
@@ -881,55 +908,75 @@
     XCTAssertFalse(matches, @"Test 6: Value mismatch should not match");
 }
 
-- (void)testMatchingSemantics_Test7_FallbackPattern {
-    // Test 7: Fallback pattern
-    // URN:     cap:op=generate_thumbnail;out="media:binary"
-    // Request: cap:ext=wav;op=generate_thumbnail;out="media:binary"
-    // Result:  MATCH (URN has implicit ext=*)
+- (void)testMatchingSemantics_Test7_PatternHasExtraTag {
+    // Test 7: Pattern has extra tag that instance doesn't have
+    // Instance: cap:op=generate_thumbnail;out="media:binary"
+    // Pattern:  cap:ext=wav;op=generate_thumbnail;out="media:binary"
+    // Result:   NO MATCH (pattern requires ext=wav, instance doesn't have ext)
+    //
+    // NEW SEMANTICS: Pattern K=v requires instance to have K=v
     NSError *error = nil;
-    CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:op=generate_thumbnail;out=\"media:binary\"" error:&error];
-    XCTAssertNotNil(urn);
+    CSTaggedUrn *instance = [CSTaggedUrn fromString:@"cap:op=generate_thumbnail;out=\"media:binary\"" error:&error];
+    XCTAssertNotNil(instance);
 
-    CSTaggedUrn *request = [CSTaggedUrn fromString:@"cap:ext=wav;op=generate_thumbnail;out=\"media:binary\"" error:&error];
-    XCTAssertNotNil(request);
+    CSTaggedUrn *pattern = [CSTaggedUrn fromString:@"cap:ext=wav;op=generate_thumbnail;out=\"media:binary\"" error:&error];
+    XCTAssertNotNil(pattern);
 
-    BOOL matches = [urn matches:request error:&error];
+    BOOL matches = [instance matches:pattern error:&error];
     XCTAssertNil(error);
-    XCTAssertTrue(matches, @"Test 7: Fallback pattern should match (URN missing ext = implicit wildcard)");
+    XCTAssertFalse(matches, @"Test 7: Instance missing ext should NOT match when pattern requires ext=wav");
 }
 
-- (void)testMatchingSemantics_Test8_EmptyUrnMatchesAnything {
-    // Test 8: Empty URN matches anything
-    // URN:     cap:
-    // Request: cap:op=generate;ext=pdf
-    // Result:  MATCH
+- (void)testMatchingSemantics_Test8_EmptyPatternMatchesAnything {
+    // Test 8: Empty PATTERN matches any INSTANCE
+    // Instance: cap:op=generate;ext=pdf
+    // Pattern:  cap:
+    // Result:   MATCH (pattern has no constraints)
+    //
+    // NEW SEMANTICS: Empty pattern = no constraints = matches any instance
     NSError *error = nil;
-    CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:" error:&error];
-    XCTAssertNotNil(urn);
+    CSTaggedUrn *instance = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
+    XCTAssertNotNil(instance);
 
-    CSTaggedUrn *request = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
-    XCTAssertNotNil(request);
+    CSTaggedUrn *emptyPattern = [CSTaggedUrn fromString:@"cap:" error:&error];
+    XCTAssertNotNil(emptyPattern);
 
-    BOOL matches = [urn matches:request error:&error];
+    BOOL matches = [instance matches:emptyPattern error:&error];
     XCTAssertNil(error);
-    XCTAssertTrue(matches, @"Test 8: Empty URN should match anything");
+    XCTAssertTrue(matches, @"Test 8: Any instance should match empty pattern");
+
+    // Empty instance vs pattern with requirements: NO MATCH
+    CSTaggedUrn *emptyInstance = [CSTaggedUrn fromString:@"cap:" error:&error];
+    CSTaggedUrn *pattern = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
+    matches = [emptyInstance matches:pattern error:&error];
+    XCTAssertNil(error);
+    XCTAssertFalse(matches, @"Empty instance should NOT match pattern with requirements");
 }
 
-- (void)testMatchingSemantics_Test9_CrossDimensionIndependence {
-    // Test 9: Cross-dimension independence
-    // URN:     cap:op=generate
-    // Request: cap:ext=pdf
-    // Result:  MATCH (both have implicit wildcards for missing tags)
+- (void)testMatchingSemantics_Test9_CrossDimensionConstraints {
+    // Test 9: Cross-dimension constraints
+    // Instance: cap:op=generate
+    // Pattern:  cap:ext=pdf
+    // Result:   NO MATCH (pattern requires ext=pdf, instance doesn't have ext)
+    //
+    // NEW SEMANTICS: Pattern K=v requires instance to have K=v
     NSError *error = nil;
-    CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:op=generate" error:&error];
-    XCTAssertNotNil(urn);
+    CSTaggedUrn *instance = [CSTaggedUrn fromString:@"cap:op=generate" error:&error];
+    XCTAssertNotNil(instance);
 
-    CSTaggedUrn *request = [CSTaggedUrn fromString:@"cap:ext=pdf" error:&error];
-    XCTAssertNotNil(request);
+    CSTaggedUrn *pattern = [CSTaggedUrn fromString:@"cap:ext=pdf" error:&error];
+    XCTAssertNotNil(pattern);
 
-    BOOL matches = [urn matches:request error:&error];
+    BOOL matches = [instance matches:pattern error:&error];
     XCTAssertNil(error);
-    XCTAssertTrue(matches, @"Test 9: Cross-dimension independence should match");
+    XCTAssertFalse(matches, @"Test 9: Instance without ext should NOT match pattern requiring ext");
+
+    // Instance with ext vs pattern with different tag only: MATCH
+    CSTaggedUrn *instance2 = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
+    CSTaggedUrn *pattern2 = [CSTaggedUrn fromString:@"cap:ext=pdf" error:&error];
+    matches = [instance2 matches:pattern2 error:&error];
+    XCTAssertNil(error);
+    XCTAssertTrue(matches, @"Instance with ext=pdf should match pattern requiring ext=pdf");
 }
 
 #pragma mark - Value-less Tag Tests
@@ -1025,40 +1072,49 @@
     XCTAssertTrue(matches);
 }
 
-- (void)testValuelessTagInRequest {
-    // Request with value-less tag matches any URN value
+- (void)testValuelessTagInPattern {
+    // Pattern with value-less tag (K=*) requires instance to have the tag
     NSError *error = nil;
-    CSTaggedUrn *request = [CSTaggedUrn fromString:@"cap:op=generate;ext" error:&error];
-    XCTAssertNotNil(request);
+    CSTaggedUrn *pattern = [CSTaggedUrn fromString:@"cap:op=generate;ext" error:&error];
+    XCTAssertNotNil(pattern);
 
-    CSTaggedUrn *urnPdf = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
-    CSTaggedUrn *urnDocx = [CSTaggedUrn fromString:@"cap:op=generate;ext=docx" error:&error];
-    CSTaggedUrn *urnMissing = [CSTaggedUrn fromString:@"cap:op=generate" error:&error];
+    CSTaggedUrn *instancePdf = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
+    CSTaggedUrn *instanceDocx = [CSTaggedUrn fromString:@"cap:op=generate;ext=docx" error:&error];
+    CSTaggedUrn *instanceMissing = [CSTaggedUrn fromString:@"cap:op=generate" error:&error];
 
     BOOL matches;
-    matches = [urnPdf matches:request error:&error];
+    // NEW SEMANTICS: K=* (valueless tag) means must-have-any
+    matches = [instancePdf matches:pattern error:&error];
+    XCTAssertNil(error);
+    XCTAssertTrue(matches); // Has ext=pdf
+
+    matches = [instanceDocx matches:pattern error:&error];
+    XCTAssertNil(error);
+    XCTAssertTrue(matches); // Has ext=docx
+
+    matches = [instanceMissing matches:pattern error:&error];
+    XCTAssertNil(error);
+    XCTAssertFalse(matches); // Missing ext, pattern requires it
+
+    // To accept missing ext, use ? instead
+    CSTaggedUrn *patternOptional = [CSTaggedUrn fromString:@"cap:op=generate;ext=?" error:&error];
+    XCTAssertNotNil(patternOptional);
+    matches = [instanceMissing matches:patternOptional error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches);
-
-    matches = [urnDocx matches:request error:&error];
-    XCTAssertNil(error);
-    XCTAssertTrue(matches);
-
-    matches = [urnMissing matches:request error:&error];
-    XCTAssertNil(error);
-    XCTAssertTrue(matches); // Missing = implicit wildcard
 }
 
 - (void)testValuelessTagSpecificity {
-    // Value-less tags (wildcards) don't count towards specificity
+    // NEW GRADED SPECIFICITY:
+    // K=v (exact): 3, K=* (must-have-any): 2, K=! (must-not): 1, K=? (unspecified): 0
     NSError *error = nil;
     CSTaggedUrn *urn1 = [CSTaggedUrn fromString:@"cap:op=generate" error:&error];
-    CSTaggedUrn *urn2 = [CSTaggedUrn fromString:@"cap:op=generate;optimize" error:&error];
+    CSTaggedUrn *urn2 = [CSTaggedUrn fromString:@"cap:op=generate;optimize" error:&error]; // optimize = *
     CSTaggedUrn *urn3 = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
 
-    XCTAssertEqual([urn1 specificity], 1);
-    XCTAssertEqual([urn2 specificity], 1); // optimize is wildcard, doesn't count
-    XCTAssertEqual([urn3 specificity], 2);
+    XCTAssertEqual([urn1 specificity], 3);  // 1 exact = 3
+    XCTAssertEqual([urn2 specificity], 5);  // 1 exact + 1 * = 3 + 2 = 5
+    XCTAssertEqual([urn3 specificity], 6);  // 2 exact = 3 + 3 = 6
 }
 
 - (void)testValuelessTagRoundtrip {

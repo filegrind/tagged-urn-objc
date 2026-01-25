@@ -105,9 +105,22 @@ NS_ASSUME_NONNULL_BEGIN
 
 /**
  * Get the specificity score for URN matching
- * @return The number of non-wildcard tags
+ * Graded scoring:
+ * - K=v (exact value): 3 points (most specific)
+ * - K=* (must-have-any): 2 points
+ * - K=! (must-not-have): 1 point
+ * - K=? (unspecified): 0 points (least specific)
+ * @return The specificity score
  */
 - (NSUInteger)specificity;
+
+/**
+ * Get specificity as a tuple for tie-breaking
+ * @param exact Pointer to store exact value count
+ * @param mustHaveAny Pointer to store must-have-any count
+ * @param mustNot Pointer to store must-not count
+ */
+- (void)specificityTupleExact:(NSUInteger *)exact mustHaveAny:(NSUInteger *)mustHaveAny mustNot:(NSUInteger *)mustNot;
 
 /**
  * Check if this URN is more specific than another

@@ -24,7 +24,8 @@
     XCTAssertNotNil(taggedUrn);
     XCTAssertNil(error);
     // Alphabetical order: format, op, type
-    XCTAssertEqualObjects([taggedUrn toString], @"cap:format=json;op=transform;data_processing");
+    // tag:@"type" value:@"data_processing" creates type=data_processing, not valueless
+    XCTAssertEqualObjects([taggedUrn toString], @"cap:format=json;op=transform;type=data_processing");
 }
 
 - (void)testBuilderFluentAPI {
@@ -119,9 +120,11 @@
     XCTAssertNotNil(urn);
     XCTAssertNil(error);
 
-    XCTAssertEqualObjects([urn toString], @"cap:utility");
+    // tag:@"type" value:@"utility" creates type=utility
+    XCTAssertEqualObjects([urn toString], @"cap:type=utility");
     XCTAssertEqualObjects([urn getTag:@"type"], @"utility");
-    XCTAssertEqual([urn specificity], 1);
+    // NEW GRADED SPECIFICITY: exact value = 3 points
+    XCTAssertEqual([urn specificity], 3);
 }
 
 - (void)testBuilderComplex {
@@ -141,7 +144,8 @@
     XCTAssertNil(error);
 
     // Alphabetical order: codec, format, framerate, op, output, quality, target, type
-    NSString *expected = @"cap:codec=h264;format=mp4;framerate=30fps;op=transcode;output=binary;quality=1080p;target=video;media";
+    // tag:@"type" value:@"media" creates type=media, not valueless
+    NSString *expected = @"cap:codec=h264;format=mp4;framerate=30fps;op=transcode;output=binary;quality=1080p;target=video;type=media";
     XCTAssertEqualObjects([urn toString], expected);
 
     XCTAssertEqualObjects([urn getTag:@"type"], @"media");
@@ -153,7 +157,8 @@
     XCTAssertEqualObjects([urn getTag:@"framerate"], @"30fps");
     XCTAssertEqualObjects([urn getTag:@"output"], @"binary");
 
-    XCTAssertEqual([urn specificity], 8); // All 8 tags are non-wildcard
+    // NEW GRADED SPECIFICITY: 8 exact values × 3 points each = 24
+    XCTAssertEqual([urn specificity], 24);
 }
 
 - (void)testBuilderWildcards {
@@ -169,7 +174,10 @@
 
     // Alphabetical order: ext, op, quality (wildcards serialize as value-less)
     XCTAssertEqualObjects([urn toString], @"cap:ext;op=convert;quality");
-    XCTAssertEqual([urn specificity], 1); // Only op is specific
+    // NEW GRADED SPECIFICITY:
+    // op=convert (exact) = 3, ext=* = 2, quality=* = 2
+    // Total = 3 + 2 + 2 = 7
+    XCTAssertEqual([urn specificity], 7);
 
     XCTAssertEqualObjects([urn getTag:@"ext"], @"*");
     XCTAssertEqualObjects([urn getTag:@"quality"], @"*");
@@ -199,47 +207,49 @@
 - (void)testBuilderMatchingWithBuiltUrn {
     NSError *error;
 
-    // Create a specific urn
+    // Create a specific instance
     CSTaggedUrnBuilder *builder1 = [CSTaggedUrnBuilder builderWithPrefix:@"cap"];
     [builder1 tag:@"op" value:@"generate"];
     [builder1 tag:@"target" value:@"thumbnail"];
     [builder1 tag:@"format" value:@"pdf"];
-    CSTaggedUrn *specificUrn = [builder1 build:&error];
+    CSTaggedUrn *specificInstance = [builder1 build:&error];
 
-    // Create a more general request
+    // Create a more general pattern (fewer constraints)
     CSTaggedUrnBuilder *builder2 = [CSTaggedUrnBuilder builderWithPrefix:@"cap"];
     [builder2 tag:@"op" value:@"generate"];
-    CSTaggedUrn *generalRequest = [builder2 build:&error];
+    CSTaggedUrn *generalPattern = [builder2 build:&error];
 
-    // Create a wildcard request
+    // Create a pattern with wildcard (ext=* means must-have-any)
     CSTaggedUrnBuilder *builder3 = [CSTaggedUrnBuilder builderWithPrefix:@"cap"];
     [builder3 tag:@"op" value:@"generate"];
     [builder3 tag:@"target" value:@"thumbnail"];
     [builder3 tag:@"ext" value:@"*"];
-    CSTaggedUrn *wildcardRequest = [builder3 build:&error];
+    CSTaggedUrn *wildcardPattern = [builder3 build:&error];
 
-    XCTAssertNotNil(specificUrn);
-    XCTAssertNotNil(generalRequest);
-    XCTAssertNotNil(wildcardRequest);
+    XCTAssertNotNil(specificInstance);
+    XCTAssertNotNil(generalPattern);
+    XCTAssertNotNil(wildcardPattern);
 
-    // Specific urn should handle general request
-    BOOL matches = [specificUrn matches:generalRequest error:&error];
+    // Specific instance should match general pattern (pattern has fewer constraints)
+    BOOL matches = [specificInstance matches:generalPattern error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches);
 
-    // Specific urn should handle wildcard request
-    matches = [specificUrn matches:wildcardRequest error:&error];
+    // NEW SEMANTICS: wildcardPattern has ext=* which means instance MUST have ext
+    // specificInstance doesn't have ext, so this should NOT match
+    matches = [specificInstance matches:wildcardPattern error:&error];
     XCTAssertNil(error);
-    XCTAssertTrue(matches);
+    XCTAssertFalse(matches); // Instance missing ext, pattern requires ext to be present
 
     // Check specificity
-    BOOL moreSpecific = [specificUrn isMoreSpecificThan:generalRequest error:&error];
+    BOOL moreSpecific = [specificInstance isMoreSpecificThan:generalPattern error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(moreSpecific);
 
-    XCTAssertEqual([specificUrn specificity], 3); // op, target, format
-    XCTAssertEqual([generalRequest specificity], 1); // op
-    XCTAssertEqual([wildcardRequest specificity], 2); // op, target (ext=* doesn't count)
+    // NEW GRADED SPECIFICITY: exact value = 3 points, * = 2 points
+    XCTAssertEqual([specificInstance specificity], 9); // 3 exact values × 3 = 9
+    XCTAssertEqual([generalPattern specificity], 3); // 1 exact value × 3 = 3
+    XCTAssertEqual([wildcardPattern specificity], 8); // 2 exact × 3 + 1 * × 2 = 6 + 2 = 8
 }
 
 @end
