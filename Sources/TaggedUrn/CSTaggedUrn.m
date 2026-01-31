@@ -91,6 +91,17 @@ typedef NS_ENUM(NSInteger, CSParseState) {
         return nil;
     }
 
+    // Fail hard on leading/trailing whitespace
+    NSString *trimmed = [string stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (![string isEqualToString:trimmed]) {
+        if (error) {
+            *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                         code:CSTaggedUrnErrorWhitespaceInInput
+                                     userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"URN has leading or trailing whitespace: '%@'", string]}];
+        }
+        return nil;
+    }
+
     // Find the prefix (everything before the first colon)
     NSRange colonRange = [string rangeOfString:@":"];
     if (colonRange.location == NSNotFound) {

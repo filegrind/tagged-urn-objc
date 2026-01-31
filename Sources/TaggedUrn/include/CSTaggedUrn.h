@@ -225,7 +225,8 @@ typedef NS_ERROR_ENUM(CSTaggedUrnErrorDomain, CSTaggedUrnError) {
     CSTaggedUrnErrorUnterminatedQuote = 8,
     CSTaggedUrnErrorInvalidEscapeSequence = 9,
     CSTaggedUrnErrorEmptyPrefix = 10,
-    CSTaggedUrnErrorPrefixMismatch = 11
+    CSTaggedUrnErrorPrefixMismatch = 11,
+    CSTaggedUrnErrorWhitespaceInInput = 12
 };
 
 /**
