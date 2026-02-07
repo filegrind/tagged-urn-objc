@@ -24,7 +24,7 @@
 
     for (CSTaggedUrn *urn in urns) {
         NSError *matchError = nil;
-        if ([urn canHandle:request error:&matchError]) {
+        if ([urn conformsTo:request error:&matchError]) {
             [matches addObject:urn];
         } else if (matchError) {
             // Prefix mismatch error - propagate it
@@ -62,11 +62,11 @@
 }
 
 + (BOOL)urn:(CSTaggedUrn *)urn
-    canHandleRequest:(CSTaggedUrn *)request
-         withContext:(nullable NSDictionary<NSString *, id> *)context
-               error:(NSError **)error {
+    conformsToRequest:(CSTaggedUrn *)request
+          withContext:(nullable NSDictionary<NSString *, id> *)context
+                error:(NSError **)error {
     // Basic URN matching
-    if (![urn canHandle:request error:error]) {
+    if (![urn conformsTo:request error:error]) {
         return NO;
     }
 

@@ -231,13 +231,13 @@
     XCTAssertNotNil(wildcardPattern);
 
     // Specific instance should match general pattern (pattern has fewer constraints)
-    BOOL matches = [specificInstance matches:generalPattern error:&error];
+    BOOL matches = [specificInstance conformsTo:generalPattern error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches);
 
     // NEW SEMANTICS: wildcardPattern has ext=* which means instance MUST have ext
     // specificInstance doesn't have ext, so this should NOT match
-    matches = [specificInstance matches:wildcardPattern error:&error];
+    matches = [specificInstance conformsTo:wildcardPattern error:&error];
     XCTAssertNil(error);
     XCTAssertFalse(matches); // Instance missing ext, pattern requires ext to be present
 

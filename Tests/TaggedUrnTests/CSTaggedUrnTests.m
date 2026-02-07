@@ -107,11 +107,11 @@
     XCTAssertEqualObjects([urn1 toString], [urn2 toString]);
 
     // They should match each other
-    BOOL matches1 = [urn1 matches:urn2 error:&error];
+    BOOL matches1 = [urn1 conformsTo:urn2 error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches1);
 
-    BOOL matches2 = [urn2 matches:urn1 error:&error];
+    BOOL matches2 = [urn2 conformsTo:urn1 error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches2);
 }
@@ -151,25 +151,25 @@
 
     // Exact match
     CSTaggedUrn *request1 = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf;target=thumbnail;" error:&error];
-    BOOL matches = [urn matches:request1 error:&error];
+    BOOL matches = [urn conformsTo:request1 error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches);
 
     // Subset match
     CSTaggedUrn *request2 = [CSTaggedUrn fromString:@"cap:op=generate" error:&error];
-    matches = [urn matches:request2 error:&error];
+    matches = [urn conformsTo:request2 error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches);
 
     // Wildcard request should match specific urn
     CSTaggedUrn *request3 = [CSTaggedUrn fromString:@"cap:ext=*" error:&error];
-    matches = [urn matches:request3 error:&error];
+    matches = [urn conformsTo:request3 error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches);
 
     // No match - conflicting value
     CSTaggedUrn *request4 = [CSTaggedUrn fromString:@"cap:op=extract" error:&error];
-    matches = [urn matches:request4 error:&error];
+    matches = [urn conformsTo:request4 error:&error];
     XCTAssertNil(error);
     XCTAssertFalse(matches);
 }
@@ -182,7 +182,7 @@
     XCTAssertNotNil(urn2);
 
     error = nil;
-    [urn1 matches:urn2 error:&error];
+    [urn1 conformsTo:urn2 error:&error];
     XCTAssertNotNil(error);
     XCTAssertEqual(error.code, CSTaggedUrnErrorPrefixMismatch);
 }
@@ -195,14 +195,14 @@
 
     // Pattern with tag that instance doesn't have: NO MATCH
     CSTaggedUrn *pattern1 = [CSTaggedUrn fromString:@"cap:ext=pdf" error:&error];
-    BOOL matches = [instance matches:pattern1 error:&error];
+    BOOL matches = [instance conformsTo:pattern1 error:&error];
     XCTAssertNil(error);
     XCTAssertFalse(matches); // Instance missing ext, pattern wants ext=pdf
 
     // Pattern missing tag = no constraint: MATCH
     CSTaggedUrn *instance2 = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
     CSTaggedUrn *pattern2 = [CSTaggedUrn fromString:@"cap:op=generate" error:&error];
-    matches = [instance2 matches:pattern2 error:&error];
+    matches = [instance2 conformsTo:pattern2 error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches); // Instance has ext=pdf, pattern doesn't constrain ext
 }
@@ -329,12 +329,12 @@
 
     // Test that wildcarded urn can match more requests
     CSTaggedUrn *request = [CSTaggedUrn fromString:@"cap:ext=jpg" error:&error];
-    BOOL matches = [urn matches:request error:&error];
+    BOOL matches = [urn conformsTo:request error:&error];
     XCTAssertNil(error);
     XCTAssertFalse(matches);
 
     CSTaggedUrn *wildcardRequest = [CSTaggedUrn fromString:@"cap:ext" error:&error];
-    matches = [wildcarded matches:wildcardRequest error:&error];
+    matches = [wildcarded conformsTo:wildcardRequest error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches);
 }
@@ -456,17 +456,17 @@
     CSTaggedUrn *specific = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
 
     // Empty instance vs specific pattern: NO MATCH
-    BOOL matches = [empty matches:specific error:&error];
+    BOOL matches = [empty conformsTo:specific error:&error];
     XCTAssertNil(error);
     XCTAssertFalse(matches); // Empty instance doesn't match pattern with requirements
 
     // Specific instance vs empty pattern: MATCH
-    matches = [specific matches:empty error:&error];
+    matches = [specific conformsTo:empty error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches); // Instance matches empty pattern
 
     // Empty instance vs empty pattern: MATCH
-    matches = [empty matches:empty error:&error];
+    matches = [empty conformsTo:empty error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches);
 }
@@ -778,7 +778,7 @@
     XCTAssertNotNil(urn2);
 
     error = nil;
-    [urn1 matches:urn2 error:&error];
+    [urn1 conformsTo:urn2 error:&error];
     XCTAssertNotNil(error);
 
     error = nil;
@@ -809,7 +809,7 @@
     CSTaggedUrn *request = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
     XCTAssertNotNil(request);
 
-    BOOL matches = [urn matches:request error:&error];
+    BOOL matches = [urn conformsTo:request error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches, @"Test 1: Exact match should succeed");
 }
@@ -828,14 +828,14 @@
     CSTaggedUrn *pattern = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
     XCTAssertNotNil(pattern);
 
-    BOOL matches = [instance matches:pattern error:&error];
+    BOOL matches = [instance conformsTo:pattern error:&error];
     XCTAssertNil(error);
     XCTAssertFalse(matches, @"Test 2: Instance missing tag should NOT match when pattern requires it");
 
     // To accept any ext (or missing), use pattern with ext=?
     CSTaggedUrn *patternOptional = [CSTaggedUrn fromString:@"cap:op=generate;ext=?" error:&error];
     XCTAssertNotNil(patternOptional);
-    matches = [instance matches:patternOptional error:&error];
+    matches = [instance conformsTo:patternOptional error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches, @"Pattern with ext=? should match instance without ext");
 }
@@ -852,7 +852,7 @@
     CSTaggedUrn *request = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
     XCTAssertNotNil(request);
 
-    BOOL matches = [urn matches:request error:&error];
+    BOOL matches = [urn conformsTo:request error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches, @"Test 3: URN with extra tag should match");
 }
@@ -869,7 +869,7 @@
     CSTaggedUrn *request = [CSTaggedUrn fromString:@"cap:op=generate;ext=*" error:&error];
     XCTAssertNotNil(request);
 
-    BOOL matches = [urn matches:request error:&error];
+    BOOL matches = [urn conformsTo:request error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches, @"Test 4: Request wildcard should match");
 }
@@ -886,7 +886,7 @@
     CSTaggedUrn *request = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
     XCTAssertNotNil(request);
 
-    BOOL matches = [urn matches:request error:&error];
+    BOOL matches = [urn conformsTo:request error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches, @"Test 5: URN wildcard should match");
 }
@@ -903,7 +903,7 @@
     CSTaggedUrn *request = [CSTaggedUrn fromString:@"cap:op=generate;ext=docx" error:&error];
     XCTAssertNotNil(request);
 
-    BOOL matches = [urn matches:request error:&error];
+    BOOL matches = [urn conformsTo:request error:&error];
     XCTAssertNil(error);
     XCTAssertFalse(matches, @"Test 6: Value mismatch should not match");
 }
@@ -922,7 +922,7 @@
     CSTaggedUrn *pattern = [CSTaggedUrn fromString:@"cap:ext=wav;op=generate_thumbnail;out=\"media:binary\"" error:&error];
     XCTAssertNotNil(pattern);
 
-    BOOL matches = [instance matches:pattern error:&error];
+    BOOL matches = [instance conformsTo:pattern error:&error];
     XCTAssertNil(error);
     XCTAssertFalse(matches, @"Test 7: Instance missing ext should NOT match when pattern requires ext=wav");
 }
@@ -941,14 +941,14 @@
     CSTaggedUrn *emptyPattern = [CSTaggedUrn fromString:@"cap:" error:&error];
     XCTAssertNotNil(emptyPattern);
 
-    BOOL matches = [instance matches:emptyPattern error:&error];
+    BOOL matches = [instance conformsTo:emptyPattern error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches, @"Test 8: Any instance should match empty pattern");
 
     // Empty instance vs pattern with requirements: NO MATCH
     CSTaggedUrn *emptyInstance = [CSTaggedUrn fromString:@"cap:" error:&error];
     CSTaggedUrn *pattern = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
-    matches = [emptyInstance matches:pattern error:&error];
+    matches = [emptyInstance conformsTo:pattern error:&error];
     XCTAssertNil(error);
     XCTAssertFalse(matches, @"Empty instance should NOT match pattern with requirements");
 }
@@ -967,14 +967,14 @@
     CSTaggedUrn *pattern = [CSTaggedUrn fromString:@"cap:ext=pdf" error:&error];
     XCTAssertNotNil(pattern);
 
-    BOOL matches = [instance matches:pattern error:&error];
+    BOOL matches = [instance conformsTo:pattern error:&error];
     XCTAssertNil(error);
     XCTAssertFalse(matches, @"Test 9: Instance without ext should NOT match pattern requiring ext");
 
     // Instance with ext vs pattern with different tag only: MATCH
     CSTaggedUrn *instance2 = [CSTaggedUrn fromString:@"cap:op=generate;ext=pdf" error:&error];
     CSTaggedUrn *pattern2 = [CSTaggedUrn fromString:@"cap:ext=pdf" error:&error];
-    matches = [instance2 matches:pattern2 error:&error];
+    matches = [instance2 conformsTo:pattern2 error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches, @"Instance with ext=pdf should match pattern requiring ext=pdf");
 }
@@ -1059,15 +1059,15 @@
     CSTaggedUrn *requestAny = [CSTaggedUrn fromString:@"cap:op=generate;ext=anything" error:&error];
 
     BOOL matches;
-    matches = [urn matches:requestPdf error:&error];
+    matches = [urn conformsTo:requestPdf error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches);
 
-    matches = [urn matches:requestDocx error:&error];
+    matches = [urn conformsTo:requestDocx error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches);
 
-    matches = [urn matches:requestAny error:&error];
+    matches = [urn conformsTo:requestAny error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches);
 }
@@ -1084,22 +1084,22 @@
 
     BOOL matches;
     // NEW SEMANTICS: K=* (valueless tag) means must-have-any
-    matches = [instancePdf matches:pattern error:&error];
+    matches = [instancePdf conformsTo:pattern error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches); // Has ext=pdf
 
-    matches = [instanceDocx matches:pattern error:&error];
+    matches = [instanceDocx conformsTo:pattern error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches); // Has ext=docx
 
-    matches = [instanceMissing matches:pattern error:&error];
+    matches = [instanceMissing conformsTo:pattern error:&error];
     XCTAssertNil(error);
     XCTAssertFalse(matches); // Missing ext, pattern requires it
 
     // To accept missing ext, use ? instead
     CSTaggedUrn *patternOptional = [CSTaggedUrn fromString:@"cap:op=generate;ext=?" error:&error];
     XCTAssertNotNil(patternOptional);
-    matches = [instanceMissing matches:patternOptional error:&error];
+    matches = [instanceMissing conformsTo:patternOptional error:&error];
     XCTAssertNil(error);
     XCTAssertTrue(matches);
 }

@@ -481,7 +481,9 @@ typedef NS_ENUM(NSInteger, CSParseState) {
     return [inst isEqualToString:patt]; // Both have values, must match exactly
 }
 
-- (BOOL)matches:(CSTaggedUrn *)pattern error:(NSError **)error {
+/// Check if this URN (instance) satisfies the pattern's constraints.
+/// Equivalent to [pattern accepts:self error:error].
+- (BOOL)conformsTo:(CSTaggedUrn *)pattern error:(NSError **)error {
     if (!pattern) {
         if (error) {
             *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
@@ -490,34 +492,58 @@ typedef NS_ENUM(NSInteger, CSParseState) {
         }
         return NO;
     }
+    return [CSTaggedUrn checkMatchInstanceTags:self.mutableTags
+                                instancePrefix:self.mutablePrefix
+                                   patternTags:pattern.mutableTags
+                                 patternPrefix:pattern.mutablePrefix
+                                         error:error];
+}
 
-    // First check prefix - must match exactly
-    if (![self.mutablePrefix isEqualToString:pattern.mutablePrefix]) {
+/// Check if this URN (pattern) accepts the given instance.
+/// Equivalent to [instance conformsTo:self error:error].
+- (BOOL)accepts:(CSTaggedUrn *)instance error:(NSError **)error {
+    if (!instance) {
+        if (error) {
+            *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                         code:CSTaggedUrnErrorInvalidFormat
+                                     userInfo:@{NSLocalizedDescriptionKey: @"Cannot match against nil instance"}];
+        }
+        return NO;
+    }
+    return [CSTaggedUrn checkMatchInstanceTags:instance.mutableTags
+                                instancePrefix:instance.mutablePrefix
+                                   patternTags:self.mutableTags
+                                 patternPrefix:self.mutablePrefix
+                                         error:error];
+}
+
+/// Core matching: does instance satisfy pattern's constraints?
++ (BOOL)checkMatchInstanceTags:(NSDictionary<NSString *, NSString *> *)instanceTags
+                instancePrefix:(NSString *)instancePrefix
+                   patternTags:(NSDictionary<NSString *, NSString *> *)patternTags
+                 patternPrefix:(NSString *)patternPrefix
+                         error:(NSError **)error {
+    if (![instancePrefix isEqualToString:patternPrefix]) {
         if (error) {
             *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
                                          code:CSTaggedUrnErrorPrefixMismatch
-                                     userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Cannot compare URNs with different prefixes: '%@' vs '%@'", self.mutablePrefix, pattern.mutablePrefix]}];
+                                     userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Cannot compare URNs with different prefixes: '%@' vs '%@'", instancePrefix, patternPrefix]}];
         }
         return NO;
     }
 
-    // Collect all keys from both instance and pattern
-    NSMutableSet<NSString *> *allKeys = [NSMutableSet setWithArray:self.mutableTags.allKeys];
-    [allKeys addObjectsFromArray:pattern.mutableTags.allKeys];
+    NSMutableSet<NSString *> *allKeys = [NSMutableSet setWithArray:instanceTags.allKeys];
+    [allKeys addObjectsFromArray:patternTags.allKeys];
 
     for (NSString *key in allKeys) {
-        NSString *inst = self.mutableTags[key];
-        NSString *patt = pattern.mutableTags[key];
+        NSString *inst = instanceTags[key];
+        NSString *patt = patternTags[key];
 
         if (![CSTaggedUrn valuesMatchInst:inst patt:patt]) {
             return NO;
         }
     }
     return YES;
-}
-
-- (BOOL)canHandle:(CSTaggedUrn *)request error:(NSError **)error {
-    return [self matches:request error:error];
 }
 
 /// Calculate specificity score for URN matching

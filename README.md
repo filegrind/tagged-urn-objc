@@ -51,8 +51,8 @@ CSTaggedUrn *built = [[[CSTaggedUrnBuilder builderWithPrefix:@"cap"]
 
 // Check matching
 CSTaggedUrn *pattern = [CSTaggedUrn fromString:@"cap:op=generate" error:&error];
-if ([urn matches:pattern error:&error]) {
-    NSLog(@"URN matches pattern");
+if ([urn conformsTo:pattern error:&error]) {
+    NSLog(@"URN conforms to pattern");
 }
 ```
 
@@ -78,8 +78,8 @@ let built = try CSTaggedUrnBuilder.builder(withPrefix: "cap")
 
 // Check matching
 let pattern = try CSTaggedUrn.fromString("cap:op=generate")
-if try urn.matches(pattern) {
-    print("URN matches pattern")
+if try urn.conforms(to: pattern) {
+    print("URN conforms to pattern")
 }
 ```
 
@@ -96,7 +96,8 @@ if try urn.matches(pattern) {
 | `-hasTag:withValue:` | Check if tag exists with value |
 | `-withTag:value:` | Return new URN with tag added/updated |
 | `-withoutTag:` | Return new URN with tag removed |
-| `-matches:error:` | Check if URN matches a pattern |
+| `-conformsTo:error:` | Check if URN conforms to a pattern |
+| `-accepts:error:` | Check if URN (as pattern) accepts an instance |
 | `-canHandle:error:` | Check if URN can handle a request |
 | `-specificity` | Get graded specificity score |
 | `-isMoreSpecificThan:error:` | Compare specificity with another URN |

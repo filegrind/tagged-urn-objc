@@ -52,20 +52,20 @@ NS_ASSUME_NONNULL_BEGIN
 + (NSArray<CSTaggedUrn *> * _Nonnull)sortUrnsBySpecificity:(NSArray<CSTaggedUrn *> * _Nonnull)urns;
 
 /**
- * Check if a URN can handle a request with additional context
+ * Check if a URN conforms to a request with additional context
  *
  * IMPORTANT: Both URNs must have the same prefix.
  *
- * @param urn The URN to check
- * @param request The requested URN
+ * @param urn The URN to check (instance)
+ * @param request The requested URN (pattern)
  * @param context Additional context for matching (optional)
  * @param error Error if prefixes don't match
- * @return YES if the URN can handle the request
+ * @return YES if the URN conforms to the request
  */
 + (BOOL)urn:(CSTaggedUrn * _Nonnull)urn
-    canHandleRequest:(CSTaggedUrn * _Nonnull)request
-         withContext:(nullable NSDictionary<NSString *, id> *)context
-               error:(NSError * _Nullable * _Nullable)error;
+    conformsToRequest:(CSTaggedUrn * _Nonnull)request
+          withContext:(nullable NSDictionary<NSString *, id> *)context
+                error:(NSError * _Nullable * _Nullable)error;
 
 @end
 

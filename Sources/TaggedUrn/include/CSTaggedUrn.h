@@ -90,35 +90,27 @@ NS_ASSUME_NONNULL_BEGIN
 - (CSTaggedUrn * _Nonnull)withoutTag:(NSString * _Nonnull)key;
 
 /**
- * Check if this URN (instance) matches a pattern based on tag compatibility
- *
- * Per-tag matching semantics:
- *   Pattern (missing) or K=?  → always matches
- *   Pattern K=!               → instance must NOT have K
- *   Pattern K=*               → instance must have K with any value
- *   Pattern K=v               → instance must have K with exact value v
- *
- * Special values work symmetrically on both instance and pattern sides.
+ * Check if this URN (instance) satisfies the pattern's constraints.
+ * Equivalent to [pattern accepts:self error:error].
  *
  * IMPORTANT: Both URNs must have the same prefix. Comparing URNs with
  * different prefixes is a programming error and will return NO with an error.
  *
  * @param pattern The pattern URN to match against
  * @param error Error if prefixes don't match
- * @return YES if this URN matches the pattern
+ * @return YES if this instance conforms to the pattern
  */
-- (BOOL)matches:(CSTaggedUrn * _Nonnull)pattern error:(NSError * _Nullable * _Nullable)error;
+- (BOOL)conformsTo:(CSTaggedUrn * _Nonnull)pattern error:(NSError * _Nullable * _Nullable)error;
 
 /**
- * Check if this URN can handle a request
+ * Check if this URN (pattern) accepts the given instance.
+ * Equivalent to [instance conformsTo:self error:error].
  *
- * IMPORTANT: Both URNs must have the same prefix.
- *
- * @param request The requested URN
+ * @param instance The instance URN to test
  * @param error Error if prefixes don't match
- * @return YES if this URN can handle the request
+ * @return YES if this pattern accepts the instance
  */
-- (BOOL)canHandle:(CSTaggedUrn * _Nonnull)request error:(NSError * _Nullable * _Nullable)error;
+- (BOOL)accepts:(CSTaggedUrn * _Nonnull)instance error:(NSError * _Nullable * _Nullable)error;
 
 /**
  * Get the specificity score for URN matching
