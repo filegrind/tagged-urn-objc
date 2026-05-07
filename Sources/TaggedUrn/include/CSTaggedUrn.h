@@ -160,23 +160,42 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)isComparableTo:(CSTaggedUrn * _Nonnull)other error:(NSError * _Nullable * _Nullable)error;
 
 /**
- * Get the specificity score for URN matching
- * Graded scoring:
- * - K=v (exact value): 3 points (most specific)
- * - K=* (must-have-any): 2 points
- * - K=! (must-not-have): 1 point
- * - K=? (unspecified): 0 points (least specific)
+ * Get the specificity score for URN matching.
+ * Sum of per-tag truth-table scores. Per-tag ladder:
+ *
+ *     "?"            -> 0   (no constraint)
+ *     starts "?="    -> 1   (absent or not v)
+ *     "*"            -> 2   (must-have-any)
+ *     starts "!="    -> 3   (present and not v)
+ *     exact value    -> 4   (exact match)
+ *     "!"            -> 5   (must-not-have)
+ *
  * @return The specificity score
  */
 - (NSUInteger)specificity;
 
 /**
- * Get specificity as a tuple for tie-breaking
- * @param exact Pointer to store exact value count
- * @param mustHaveAny Pointer to store must-have-any count
- * @param mustNot Pointer to store must-not count
+ * Per-tag truth-table specificity score, applied uniformly to any
+ * stored tag value. Free function so callers in cap_urn / media_urn
+ * can score values without a TaggedUrn instance.
  */
-- (void)specificityTupleExact:(NSUInteger *)exact mustHaveAny:(NSUInteger *)mustHaveAny mustNot:(NSUInteger *)mustNot;
+FOUNDATION_EXPORT NSUInteger CSTaggedUrnScoreTagValue(NSString *value);
+
+/**
+ * Get specificity as a tuple for tie-breaking, ordered from highest
+ * score to lowest.
+ *
+ * @param mustNotHave        Pointer to store !x count (score 5)
+ * @param exact              Pointer to store exact-value count (score 4)
+ * @param presentNotValue    Pointer to store x!=v count (score 3)
+ * @param mustHaveAny        Pointer to store x=* count (score 2)
+ * @param absentOrNotValue   Pointer to store x?=v count (score 1)
+ */
+- (void)specificityTupleMustNotHave:(NSUInteger *)mustNotHave
+                              exact:(NSUInteger *)exact
+                   presentNotValue:(NSUInteger *)presentNotValue
+                       mustHaveAny:(NSUInteger *)mustHaveAny
+                  absentOrNotValue:(NSUInteger *)absentOrNotValue;
 
 /**
  * Check if this URN is more specific than another
@@ -235,6 +254,18 @@ NS_ASSUME_NONNULL_BEGIN
  * @return The quoted value with proper escaping
  */
 + (NSString *)quoteValue:(NSString *)value;
+
+/**
+ * Per-key truth-table cell evaluation for the six canonical
+ * constraint forms (plus implicit Missing). Both arguments are stored
+ * tag values (or nil to mean "key absent"). Returns YES iff the
+ * instance value satisfies the pattern's constraint at this key.
+ *
+ * Exposed for callers (e.g. CSCapUrn's y-axis matcher) that walk
+ * tag sets themselves and need the same per-cell decision the
+ * tagged-URN matcher uses internally.
+ */
++ (BOOL)valuesMatchInst:(NSString * _Nullable)inst patt:(NSString * _Nullable)patt;
 
 @end
 

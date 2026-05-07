@@ -121,8 +121,8 @@
     // tag:@"type" value:@"utility" creates type=utility
     XCTAssertEqualObjects([urn toString], @"cap:type=utility");
     XCTAssertEqualObjects([urn getTag:@"type"], @"utility");
-    // NEW GRADED SPECIFICITY: exact value = 3 points
-    XCTAssertEqual([urn specificity], 3);
+    // Six-form ladder: exact value = 4 points.
+    XCTAssertEqual([urn specificity], 4);
 }
 
 - (void)testBuilderComplex {
@@ -154,8 +154,8 @@
     XCTAssertEqualObjects([urn getTag:@"framerate"], @"30fps");
     XCTAssertEqualObjects([urn getTag:@"output"], @"binary");
 
-    // GRADED SPECIFICITY: 7 exact-valued tags × 3 + 1 marker (transcode) × 2 = 21 + 2 = 23
-    XCTAssertEqual([urn specificity], 23);
+    // Six-form ladder: 7 exact-valued tags × 4 + 1 marker (transcode) × 2 = 28 + 2 = 30.
+    XCTAssertEqual([urn specificity], 30);
 }
 
 - (void)testBuilderWildcards {
@@ -242,13 +242,13 @@
     XCTAssertNil(error);
     XCTAssertTrue(moreSpecific);
 
-    // GRADED SPECIFICITY:
-    //   specificInstance:  generate marker (2) + target=thumbnail (3) + format=pdf (3) = 8
+    // Six-form ladder: marker (x=*) = 2, exact (x=v) = 4.
+    //   specificInstance:  generate marker (2) + target=thumbnail (4) + format=pdf (4) = 10
     //   generalPattern:    generate marker (2) = 2
-    //   wildcardPattern:   generate marker (2) + target=thumbnail (3) + ext=* (2) = 7
-    XCTAssertEqual([specificInstance specificity], 8);
+    //   wildcardPattern:   generate marker (2) + target=thumbnail (4) + ext=* (2) = 8
+    XCTAssertEqual([specificInstance specificity], 10);
     XCTAssertEqual([generalPattern specificity], 2);
-    XCTAssertEqual([wildcardPattern specificity], 7);
+    XCTAssertEqual([wildcardPattern specificity], 8);
 }
 
 // TEST596: Builder with prefix verification

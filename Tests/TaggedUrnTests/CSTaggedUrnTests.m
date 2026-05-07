@@ -208,23 +208,25 @@
 }
 
 - (void)testSpecificity {
-    // GRADED SPECIFICITY:
-    // K=v (exact value): 3 points
-    // K=* (must-have-any / marker): 2 points
-    // K=! (must-not-have): 1 point
-    // K=? (unspecified): 0 points
+    // Six-form ladder:
+    //   ?x        : 0  (no constraint)
+    //   x?=v      : 1  (absent OR not v)
+    //   x (=x=*)  : 2  (must-have-any)
+    //   x!=v      : 3  (present and not v)
+    //   x=v       : 4  (must-have-this-value)
+    //   !x        : 5  (must-not-have)
     NSError *error;
-    CSTaggedUrn *urn1 = [CSTaggedUrn fromString:@"cap:op" error:&error];          // 1 marker
-    CSTaggedUrn *urn2 = [CSTaggedUrn fromString:@"cap:ext=pdf" error:&error];     // 1 exact
-    CSTaggedUrn *urn3 = [CSTaggedUrn fromString:@"cap:op;ext=pdf" error:&error];  // 1 marker + 1 exact
+    CSTaggedUrn *urn1 = [CSTaggedUrn fromString:@"cap:op" error:&error];          // marker -> 2
+    CSTaggedUrn *urn2 = [CSTaggedUrn fromString:@"cap:ext=pdf" error:&error];     // exact -> 4
+    CSTaggedUrn *urn3 = [CSTaggedUrn fromString:@"cap:op;ext=pdf" error:&error];  // 2 + 4 = 6
 
-    XCTAssertEqual([urn1 specificity], 2); // marker = 2
-    XCTAssertEqual([urn2 specificity], 3); // exact  = 3
-    XCTAssertEqual([urn3 specificity], 5); // marker + exact = 2 + 3 = 5
+    XCTAssertEqual([urn1 specificity], 2);
+    XCTAssertEqual([urn2 specificity], 4);
+    XCTAssertEqual([urn3 specificity], 6);
 
     BOOL moreSpecific = [urn2 isMoreSpecificThan:urn1 error:&error];
     XCTAssertNil(error);
-    XCTAssertTrue(moreSpecific); // 3 > 2
+    XCTAssertTrue(moreSpecific); // exact(4) > marker(2)
 }
 
 - (void)testDirectionalAccepts {
@@ -1105,8 +1107,7 @@
 }
 
 - (void)testValuelessTagSpecificity {
-    // GRADED SPECIFICITY:
-    // K=v (exact): 3, K=* (must-have-any / marker): 2, K=! (must-not): 1, K=? (unspecified): 0
+    // Six-form ladder: ?x=0, x?=v=1, x=*=2, x!=v=3, x=v=4, !x=5.
     NSError *error = nil;
     CSTaggedUrn *urn1 = [CSTaggedUrn fromString:@"cap:generate" error:&error];          // 1 marker
     CSTaggedUrn *urn2 = [CSTaggedUrn fromString:@"cap:generate;optimize" error:&error]; // 2 markers
@@ -1114,7 +1115,7 @@
 
     XCTAssertEqual([urn1 specificity], 2);  // 1 marker = 2
     XCTAssertEqual([urn2 specificity], 4);  // 2 markers = 2 + 2 = 4
-    XCTAssertEqual([urn3 specificity], 5);  // 1 marker + 1 exact = 2 + 3 = 5
+    XCTAssertEqual([urn3 specificity], 6);  // 1 marker + 1 exact = 2 + 4 = 6
 }
 
 - (void)testValuelessTagRoundtrip {

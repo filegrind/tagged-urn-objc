@@ -24,25 +24,25 @@ This catalog lists all tests in the Swift/ObjC codebase.
 | test583 | `test583_prefixMismatchErrors` | TEST583: Prefix mismatch returns error for both relations | Tests/TaggedUrnTests/CSTaggedUrnTests.m:1292 |
 | test584 | `test584_emptyTagsComparableToAll` | TEST584: Empty tag set is comparable to everything with same prefix | Tests/TaggedUrnTests/CSTaggedUrnTests.m:1309 |
 | test586 | `test586_specialValues` | TEST586: Special values (*, !, ?) with isEquivalent and isComparable | Tests/TaggedUrnTests/CSTaggedUrnTests.m:1330 |
-| test596 | `test596_builderWithPrefix` | TEST596: Builder with prefix verification | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:256 |
-| test597 | `test597_builderPreservesCase` | TEST597: Builder case preservation for quoted values | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:268 |
-| test598 | `test598_builderRejectsEmptyValue` | TEST598: Builder rejects empty tag values (matches Rust's Result error) | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:282 |
+| test596 | `test596_builderWithPrefix` | TEST596: Builder with prefix verification | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:255 |
+| test597 | `test597_builderPreservesCase` | TEST597: Builder case preservation for quoted values | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:267 |
+| test598 | `test598_builderRejectsEmptyValue` | TEST598: Builder rejects empty tag values (matches Rust's Result error) | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:281 |
 | | | | |
 | unnumbered | `testBuilder` |  | Tests/TaggedUrnTests/CSTaggedUrnTests.m:271 |
 | unnumbered | `testBuilderBasicConstruction` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:16 |
-| unnumbered | `testBuilderBuildAllowEmpty` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:106 |
-| unnumbered | `testBuilderComplex` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:130 |
-| unnumbered | `testBuilderCustomPrefix` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:195 |
-| unnumbered | `testBuilderCustomTags` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:66 |
-| unnumbered | `testBuilderEmptyBuild` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:96 |
-| unnumbered | `testBuilderFluentAPI` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:31 |
-| unnumbered | `testBuilderJSONOutput` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:50 |
-| unnumbered | `testBuilderMatchingWithBuiltUrn` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:207 |
+| unnumbered | `testBuilderBuildAllowEmpty` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:104 |
+| unnumbered | `testBuilderComplex` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:128 |
+| unnumbered | `testBuilderCustomPrefix` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:191 |
+| unnumbered | `testBuilderCustomTags` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:64 |
+| unnumbered | `testBuilderEmptyBuild` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:94 |
+| unnumbered | `testBuilderFluentAPI` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:30 |
+| unnumbered | `testBuilderJSONOutput` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:48 |
+| unnumbered | `testBuilderMatchingWithBuiltUrn` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:203 |
 | unnumbered | `testBuilderPreservesCase` |  | Tests/TaggedUrnTests/CSTaggedUrnTests.m:745 |
-| unnumbered | `testBuilderSingleTag` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:114 |
-| unnumbered | `testBuilderStaticFactory` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:186 |
-| unnumbered | `testBuilderTagOverrides` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:82 |
-| unnumbered | `testBuilderWildcards` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:164 |
+| unnumbered | `testBuilderSingleTag` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:112 |
+| unnumbered | `testBuilderStaticFactory` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:182 |
+| unnumbered | `testBuilderTagOverrides` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:80 |
+| unnumbered | `testBuilderWildcards` |  | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:161 |
 | unnumbered | `testBuilderWithCustomPrefix` |  | Tests/TaggedUrnTests/CSTaggedUrnTests.m:287 |
 | unnumbered | `testCanonicalStringFormat` |  | Tests/TaggedUrnTests/CSTaggedUrnTests.m:57 |
 | unnumbered | `testCoding` |  | Tests/TaggedUrnTests/CSTaggedUrnTests.m:394 |
@@ -120,19 +120,19 @@ The following tests are cataloged but do not currently participate in numeric te
 
 - `testBuilder` — Tests/TaggedUrnTests/CSTaggedUrnTests.m:271
 - `testBuilderBasicConstruction` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:16
-- `testBuilderBuildAllowEmpty` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:106
-- `testBuilderComplex` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:130
-- `testBuilderCustomPrefix` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:195
-- `testBuilderCustomTags` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:66
-- `testBuilderEmptyBuild` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:96
-- `testBuilderFluentAPI` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:31
-- `testBuilderJSONOutput` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:50
-- `testBuilderMatchingWithBuiltUrn` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:207
+- `testBuilderBuildAllowEmpty` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:104
+- `testBuilderComplex` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:128
+- `testBuilderCustomPrefix` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:191
+- `testBuilderCustomTags` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:64
+- `testBuilderEmptyBuild` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:94
+- `testBuilderFluentAPI` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:30
+- `testBuilderJSONOutput` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:48
+- `testBuilderMatchingWithBuiltUrn` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:203
 - `testBuilderPreservesCase` — Tests/TaggedUrnTests/CSTaggedUrnTests.m:745
-- `testBuilderSingleTag` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:114
-- `testBuilderStaticFactory` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:186
-- `testBuilderTagOverrides` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:82
-- `testBuilderWildcards` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:164
+- `testBuilderSingleTag` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:112
+- `testBuilderStaticFactory` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:182
+- `testBuilderTagOverrides` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:80
+- `testBuilderWildcards` — Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:161
 - `testBuilderWithCustomPrefix` — Tests/TaggedUrnTests/CSTaggedUrnTests.m:287
 - `testCanonicalStringFormat` — Tests/TaggedUrnTests/CSTaggedUrnTests.m:57
 - `testCoding` — Tests/TaggedUrnTests/CSTaggedUrnTests.m:394

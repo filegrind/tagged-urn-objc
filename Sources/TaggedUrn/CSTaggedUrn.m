@@ -7,10 +7,26 @@
 
 NSErrorDomain const CSTaggedUrnErrorDomain = @"CSTaggedUrnErrorDomain";
 
-// Parser states for state machine
+// Parser states for state machine.
+//
+// The parser handles six tag forms — the canonical alphabet of the
+// constraint truth table:
+//
+//   | Authored                | Canonical | Stored value | Score | Reading                                  |
+//   |-------------------------|-----------|--------------|------:|------------------------------------------|
+//   | `?x` ≡ `x?`             | `?x`      | "?"          |     0 | no constraint                            |
+//   | `?x=v` ≡ `x?=v`         | `x?=v`    | "?=v"        |     1 | absent OR (present and not v)            |
+//   | `x` ≡ `x=*`             | `x`       | "*"          |     2 | present with any value                   |
+//   | `!x=v` ≡ `x!=v`         | `x!=v`    | "!=v"        |     3 | present and not v                        |
+//   | `x=v`                   | `x=v`     | "v"          |     4 | present and exactly v (`v ∉ {?, !, *}`)  |
+//   | `!x` ≡ `x!`             | `!x`      | "!"          |     5 | absent (must-not-have)                   |
 typedef NS_ENUM(NSInteger, CSParseState) {
     CSParseStateExpectingKey,
+    CSParseStateAfterPrefixQuestion,
+    CSParseStateAfterPrefixBang,
     CSParseStateInKey,
+    CSParseStateInKeyAfterQuestion,
+    CSParseStateInKeyAfterBang,
     CSParseStateExpectingValue,
     CSParseStateInUnquotedValue,
     CSParseStateInQuotedValue,
@@ -135,6 +151,10 @@ typedef NS_ENUM(NSInteger, CSParseState) {
     NSMutableString *currentKey = [NSMutableString string];
     NSMutableString *currentValue = [NSMutableString string];
     NSUInteger pos = 0;
+    // qualifier: 0 means none, '?' or '!' means a prefix or infix
+    // qualifier has been seen for the tag currently being parsed.
+    // Reset to 0 on each finish_tag.
+    char qualifier = 0;
 
     while (pos < tagsPart.length) {
         unichar c = [tagsPart characterAtIndex:pos];
@@ -142,9 +162,14 @@ typedef NS_ENUM(NSInteger, CSParseState) {
         switch (state) {
             case CSParseStateExpectingKey:
                 if (c == ';') {
-                    // Empty segment, skip
                     pos++;
                     continue;
+                } else if (c == '?') {
+                    qualifier = '?';
+                    state = CSParseStateAfterPrefixQuestion;
+                } else if (c == '!') {
+                    qualifier = '!';
+                    state = CSParseStateAfterPrefixBang;
                 } else if ([self isValidKeyChar:c]) {
                     [currentKey appendFormat:@"%c", tolower(c)];
                     state = CSParseStateInKey;
@@ -153,6 +178,21 @@ typedef NS_ENUM(NSInteger, CSParseState) {
                         *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
                                                      code:CSTaggedUrnErrorInvalidCharacter
                                                  userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"invalid character '%C' at position %lu", c, (unsigned long)pos]}];
+                    }
+                    return nil;
+                }
+                break;
+
+            case CSParseStateAfterPrefixQuestion:
+            case CSParseStateAfterPrefixBang:
+                if ([self isValidKeyChar:c]) {
+                    [currentKey appendFormat:@"%c", tolower(c)];
+                    state = CSParseStateInKey;
+                } else {
+                    if (error) {
+                        *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                                     code:CSTaggedUrnErrorInvalidCharacter
+                                                 userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"expected key character after '%c' qualifier, got '%C' at position %lu", qualifier, c, (unsigned long)pos]}];
                     }
                     return nil;
                 }
@@ -169,8 +209,29 @@ typedef NS_ENUM(NSInteger, CSParseState) {
                         return nil;
                     }
                     state = CSParseStateExpectingValue;
+                } else if (c == '?') {
+                    if (qualifier != 0) {
+                        if (error) {
+                            *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                                         code:CSTaggedUrnErrorInvalidCharacter
+                                                     userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"duplicate qualifier '?' at position %lu: prefix and infix qualifiers cannot be combined on key '%@'", (unsigned long)pos, currentKey]}];
+                        }
+                        return nil;
+                    }
+                    qualifier = '?';
+                    state = CSParseStateInKeyAfterQuestion;
+                } else if (c == '!') {
+                    if (qualifier != 0) {
+                        if (error) {
+                            *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                                         code:CSTaggedUrnErrorInvalidCharacter
+                                                     userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"duplicate qualifier '!' at position %lu: prefix and infix qualifiers cannot be combined on key '%@'", (unsigned long)pos, currentKey]}];
+                        }
+                        return nil;
+                    }
+                    qualifier = '!';
+                    state = CSParseStateInKeyAfterBang;
                 } else if (c == ';') {
-                    // Value-less tag: treat as wildcard
                     if (currentKey.length == 0) {
                         if (error) {
                             *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
@@ -179,12 +240,13 @@ typedef NS_ENUM(NSInteger, CSParseState) {
                         }
                         return nil;
                     }
-                    [currentValue setString:@"*"];
+                    [currentValue setString:CSCanonicalNoValueForQualifier(qualifier)];
                     if (![self finishTag:tags key:currentKey value:currentValue error:error]) {
                         return nil;
                     }
                     [currentKey setString:@""];
                     [currentValue setString:@""];
+                    qualifier = 0;
                     state = CSParseStateExpectingKey;
                 } else if ([self isValidKeyChar:c]) {
                     [currentKey appendFormat:@"%c", tolower(c)];
@@ -193,6 +255,29 @@ typedef NS_ENUM(NSInteger, CSParseState) {
                         *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
                                                      code:CSTaggedUrnErrorInvalidCharacter
                                                  userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"invalid character '%C' in key at position %lu", c, (unsigned long)pos]}];
+                    }
+                    return nil;
+                }
+                break;
+
+            case CSParseStateInKeyAfterQuestion:
+            case CSParseStateInKeyAfterBang:
+                if (c == '=') {
+                    state = CSParseStateExpectingValue;
+                } else if (c == ';') {
+                    [currentValue setString:CSCanonicalNoValueForQualifier(qualifier)];
+                    if (![self finishTag:tags key:currentKey value:currentValue error:error]) {
+                        return nil;
+                    }
+                    [currentKey setString:@""];
+                    [currentValue setString:@""];
+                    qualifier = 0;
+                    state = CSParseStateExpectingKey;
+                } else {
+                    if (error) {
+                        *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                                     code:CSTaggedUrnErrorInvalidCharacter
+                                                 userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"expected '=' or ';' after '%@%c' suffix qualifier, got '%C' at position %lu", currentKey, qualifier, c, (unsigned long)pos]}];
                     }
                     return nil;
                 }
@@ -223,11 +308,15 @@ typedef NS_ENUM(NSInteger, CSParseState) {
 
             case CSParseStateInUnquotedValue:
                 if (c == ';') {
+                    if (![self canonicalizeValueWithQualifier:qualifier key:currentKey value:currentValue error:error]) {
+                        return nil;
+                    }
                     if (![self finishTag:tags key:currentKey value:currentValue error:error]) {
                         return nil;
                     }
                     [currentKey setString:@""];
                     [currentValue setString:@""];
+                    qualifier = 0;
                     state = CSParseStateExpectingKey;
                 } else if ([self isValidUnquotedValueChar:c]) {
                     [currentValue appendFormat:@"%c", tolower(c)];
@@ -247,7 +336,6 @@ typedef NS_ENUM(NSInteger, CSParseState) {
                 } else if (c == '\\') {
                     state = CSParseStateInQuotedValueEscape;
                 } else {
-                    // Any character allowed in quoted value, preserve case
                     [currentValue appendFormat:@"%C", c];
                 }
                 break;
@@ -268,11 +356,15 @@ typedef NS_ENUM(NSInteger, CSParseState) {
 
             case CSParseStateExpectingSemiOrEnd:
                 if (c == ';') {
+                    if (![self canonicalizeValueWithQualifier:qualifier key:currentKey value:currentValue error:error]) {
+                        return nil;
+                    }
                     if (![self finishTag:tags key:currentKey value:currentValue error:error]) {
                         return nil;
                     }
                     [currentKey setString:@""];
                     [currentValue setString:@""];
+                    qualifier = 0;
                     state = CSParseStateExpectingKey;
                 } else {
                     if (error) {
@@ -292,12 +384,14 @@ typedef NS_ENUM(NSInteger, CSParseState) {
     switch (state) {
         case CSParseStateInUnquotedValue:
         case CSParseStateExpectingSemiOrEnd:
+            if (![self canonicalizeValueWithQualifier:qualifier key:currentKey value:currentValue error:error]) {
+                return nil;
+            }
             if (![self finishTag:tags key:currentKey value:currentValue error:error]) {
                 return nil;
             }
             break;
         case CSParseStateExpectingKey:
-            // Valid - trailing semicolon or empty input after prefix
             break;
         case CSParseStateInQuotedValue:
         case CSParseStateInQuotedValueEscape:
@@ -307,8 +401,15 @@ typedef NS_ENUM(NSInteger, CSParseState) {
                                          userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"unterminated quote at position %lu", (unsigned long)pos]}];
             }
             return nil;
+        case CSParseStateAfterPrefixQuestion:
+        case CSParseStateAfterPrefixBang:
+            if (error) {
+                *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                             code:CSTaggedUrnErrorEmptyTag
+                                         userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"qualifier '%c' at end of input has no key", qualifier]}];
+            }
+            return nil;
         case CSParseStateInKey:
-            // Value-less tag at end: treat as wildcard
             if (currentKey.length == 0) {
                 if (error) {
                     *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
@@ -317,7 +418,14 @@ typedef NS_ENUM(NSInteger, CSParseState) {
                 }
                 return nil;
             }
-            [currentValue setString:@"*"];
+            [currentValue setString:CSCanonicalNoValueForQualifier(qualifier)];
+            if (![self finishTag:tags key:currentKey value:currentValue error:error]) {
+                return nil;
+            }
+            break;
+        case CSParseStateInKeyAfterQuestion:
+        case CSParseStateInKeyAfterBang:
+            [currentValue setString:CSCanonicalNoValueForQualifier(qualifier)];
             if (![self finishTag:tags key:currentKey value:currentValue error:error]) {
                 return nil;
             }
@@ -332,6 +440,49 @@ typedef NS_ENUM(NSInteger, CSParseState) {
     }
 
     return [self fromPrefix:prefix tagsInternal:tags error:error];
+}
+
+// Helper: canonical stored value for a value-less tag, given its
+// qualifier (0, '?' or '!').
+static NSString *CSCanonicalNoValueForQualifier(char qualifier) {
+    switch (qualifier) {
+        case 0:   return @"*";
+        case '?': return @"?";
+        case '!': return @"!";
+    }
+    [NSException raise:NSInternalInconsistencyException
+                format:@"invalid qualifier %d", qualifier];
+    return nil;
+}
+
+// Helper: canonicalize a parsed value into the stored form per the
+// qualifier. None: keep value. '?': encode as "?=v". '!': encode as
+// "!=v". Combining a qualifier with a sigil-only value (`*`, `?`,
+// `!`) is rejected.
++ (BOOL)canonicalizeValueWithQualifier:(char)qualifier
+                                   key:(NSString *)key
+                                 value:(NSMutableString *)value
+                                 error:(NSError **)error {
+    if (qualifier == 0) {
+        return YES;
+    }
+    if ([value isEqualToString:@"*"] ||
+        [value isEqualToString:@"?"] ||
+        [value isEqualToString:@"!"]) {
+        if (error) {
+            *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                         code:CSTaggedUrnErrorInvalidCharacter
+                                     userInfo:@{NSLocalizedDescriptionKey:
+                [NSString stringWithFormat:
+                 @"qualifier '%c' on key '%@' cannot combine with sigil value '%@': "
+                  "use a real value or drop the qualifier",
+                 qualifier, key, value]}];
+        }
+        return NO;
+    }
+    NSString *canonical = [NSString stringWithFormat:@"%c=%@", qualifier, value];
+    [value setString:canonical];
+    return YES;
 }
 
 + (BOOL)finishTag:(NSMutableDictionary *)tags key:(NSString *)key value:(NSString *)value error:(NSError **)error {
@@ -439,51 +590,94 @@ typedef NS_ENUM(NSInteger, CSParseState) {
     return [CSTaggedUrn fromPrefix:self.mutablePrefix tagsInternal:newTags error:nil];
 }
 
-/// Check if instance value matches pattern constraint
-/// See Rust implementation for full truth table
+// One of the seven canonical forms a tag value can take (six
+// explicit + missing). Used by the matcher and specificity scorer.
+typedef NS_ENUM(NSInteger, CSFormKind) {
+    CSFormMissing,
+    CSFormNoConstraint,         // "?"
+    CSFormAbsentOrNotValue,     // "?=v"
+    CSFormMustHaveAny,          // "*"
+    CSFormPresentNotValue,      // "!=v"
+    CSFormExact,                // exact "v"
+    CSFormMustNotHave,          // "!"
+};
+
+// Classify a stored value into (kind, raw value). raw is the inner
+// v for ?=v and !=v, the literal value for exact, and nil for the
+// sigil-only forms.
+static CSFormKind CSClassifyForm(NSString * _Nullable value, NSString * _Nullable * _Nullable rawOut) {
+    if (rawOut) *rawOut = nil;
+    if (value == nil) return CSFormMissing;
+    if ([value isEqualToString:@"?"]) return CSFormNoConstraint;
+    if ([value isEqualToString:@"*"]) return CSFormMustHaveAny;
+    if ([value isEqualToString:@"!"]) return CSFormMustNotHave;
+    if ([value hasPrefix:@"?="]) {
+        if (rawOut) *rawOut = [value substringFromIndex:2];
+        return CSFormAbsentOrNotValue;
+    }
+    if ([value hasPrefix:@"!="]) {
+        if (rawOut) *rawOut = [value substringFromIndex:2];
+        return CSFormPresentNotValue;
+    }
+    if (rawOut) *rawOut = value;
+    return CSFormExact;
+}
+
+/// Check if instance value matches pattern constraint, per the
+/// truth table over the six canonical forms (plus Missing). See
+/// capdag/docs/04-PREDICATES.md §2.5 for the cross-product table.
 + (BOOL)valuesMatchInst:(NSString *)inst patt:(NSString *)patt {
-    // Pattern has no constraint (no entry or explicit ?)
-    if (patt == nil || [patt isEqualToString:@"?"]) {
+    NSString *iVal = nil, *pVal = nil;
+    CSFormKind iKind = CSClassifyForm(inst, &iVal);
+    CSFormKind pKind = CSClassifyForm(patt, &pVal);
+
+    // Pattern unconditionally permissive.
+    if (pKind == CSFormMissing || pKind == CSFormNoConstraint) {
         return YES;
     }
 
-    // Instance doesn't care (explicit ?)
-    if ([inst isEqualToString:@"?"]) {
+    // Instance unconditionally permissive — defers to pattern.
+    if (iKind == CSFormNoConstraint) {
         return YES;
     }
 
-    // Pattern: must-not-have (!)
-    if ([patt isEqualToString:@"!"]) {
-        if (inst == nil) {
-            return YES; // Instance absent, pattern wants absent
-        }
-        if ([inst isEqualToString:@"!"]) {
-            return YES; // Both say absent
-        }
-        return NO; // Instance has value, pattern wants absent
+    if (pKind == CSFormMustNotHave) {
+        return iKind == CSFormMissing
+            || iKind == CSFormMustNotHave
+            || iKind == CSFormAbsentOrNotValue;
     }
 
-    // Instance: must-not-have conflicts with pattern wanting value
-    if ([inst isEqualToString:@"!"]) {
-        return NO; // Conflict: absent vs value or present
+    if (pKind == CSFormMustHaveAny) {
+        return !(iKind == CSFormMissing
+              || iKind == CSFormAbsentOrNotValue
+              || iKind == CSFormMustNotHave);
     }
 
-    // Pattern: must-have-any (*)
-    if ([patt isEqualToString:@"*"]) {
-        if (inst == nil) {
-            return NO; // Instance missing, pattern wants present
-        }
-        return YES; // Instance has value, pattern wants any
+    if (pKind == CSFormPresentNotValue) {
+        if (iKind == CSFormMissing
+         || iKind == CSFormAbsentOrNotValue
+         || iKind == CSFormMustNotHave) return NO;
+        if (iKind == CSFormMustHaveAny || iKind == CSFormPresentNotValue) return YES;
+        // Exact instance vs pat present-and-not-pVal.
+        return ![iVal isEqualToString:pVal];
     }
 
-    // Pattern: exact value
-    if (inst == nil) {
-        return NO; // Instance missing, pattern wants value
+    if (pKind == CSFormAbsentOrNotValue) {
+        if (iKind == CSFormMissing
+         || iKind == CSFormAbsentOrNotValue
+         || iKind == CSFormMustNotHave) return YES;
+        if (iKind == CSFormMustHaveAny || iKind == CSFormPresentNotValue) return YES;
+        // Exact vs pattern's "absent or not pVal".
+        return ![iVal isEqualToString:pVal];
     }
-    if ([inst isEqualToString:@"*"]) {
-        return YES; // Instance accepts any, pattern's value is fine
-    }
-    return [inst isEqualToString:patt]; // Both have values, must match exactly
+
+    // pKind == CSFormExact
+    if (iKind == CSFormMissing
+     || iKind == CSFormAbsentOrNotValue
+     || iKind == CSFormMustNotHave) return NO;
+    if (iKind == CSFormMustHaveAny) return YES;
+    if (iKind == CSFormPresentNotValue) return ![iVal isEqualToString:pVal];
+    return [iVal isEqualToString:pVal];
 }
 
 /// Check if this URN (instance) satisfies the pattern's constraints.
@@ -603,43 +797,56 @@ typedef NS_ENUM(NSInteger, CSParseState) {
     return YES;
 }
 
-/// Calculate specificity score for URN matching
-/// Graded scoring:
-/// - K=v (exact value): 3 points (most specific)
-/// - K=* (must-have-any): 2 points
-/// - K=! (must-not-have): 1 point
-/// - K=? (unspecified): 0 points (least specific)
+/// Per-tag truth-table specificity score, applied uniformly to any
+/// stored tag value. Missing keys score 0; the caller filters them
+/// out before calling.
+///
+///   "?"          -> 0   (no constraint)
+///   starts "?="  -> 1   (absent or not v)
+///   "*"          -> 2   (must-have-any)
+///   starts "!="  -> 3   (present and not v)
+///   "!"          -> 5   (must-not-have)
+///   otherwise    -> 4   (exact value)
+NSUInteger CSTaggedUrnScoreTagValue(NSString *value) {
+    if ([value isEqualToString:@"?"]) return 0;
+    if ([value isEqualToString:@"*"]) return 2;
+    if ([value isEqualToString:@"!"]) return 5;
+    if ([value hasPrefix:@"?="]) return 1;
+    if ([value hasPrefix:@"!="]) return 3;
+    return 4;
+}
+
+/// Calculate specificity score: sum of per-tag truth-table scores.
 - (NSUInteger)specificity {
     NSUInteger score = 0;
     for (NSString *value in self.mutableTags.allValues) {
-        if ([value isEqualToString:@"?"]) {
-            score += 0;
-        } else if ([value isEqualToString:@"!"]) {
-            score += 1;
-        } else if ([value isEqualToString:@"*"]) {
-            score += 2;
-        } else {
-            score += 3; // exact value
-        }
+        score += CSTaggedUrnScoreTagValue(value);
     }
     return score;
 }
 
-/// Get specificity as a tuple for tie-breaking
-/// Returns (exact_count, must_have_any_count, must_not_count)
-- (void)specificityTupleExact:(NSUInteger *)exact mustHaveAny:(NSUInteger *)mustHaveAny mustNot:(NSUInteger *)mustNot {
+/// Get specificity as a tuple for tie-breaking, ordered from highest
+/// score to lowest:
+/// (must_not_have, exact, present_not_value, must_have_any, absent_or_not_value)
+- (void)specificityTupleMustNotHave:(NSUInteger *)mustNotHave
+                              exact:(NSUInteger *)exact
+                   presentNotValue:(NSUInteger *)presentNotValue
+                       mustHaveAny:(NSUInteger *)mustHaveAny
+                  absentOrNotValue:(NSUInteger *)absentOrNotValue {
+    *mustNotHave = 0;
     *exact = 0;
+    *presentNotValue = 0;
     *mustHaveAny = 0;
-    *mustNot = 0;
+    *absentOrNotValue = 0;
     for (NSString *value in self.mutableTags.allValues) {
-        if ([value isEqualToString:@"?"]) {
-            // 0 points, not counted
-        } else if ([value isEqualToString:@"!"]) {
-            (*mustNot)++;
-        } else if ([value isEqualToString:@"*"]) {
-            (*mustHaveAny)++;
-        } else {
-            (*exact)++;
+        switch (CSClassifyForm(value, NULL)) {
+            case CSFormMustNotHave:        (*mustNotHave)++; break;
+            case CSFormExact:              (*exact)++; break;
+            case CSFormPresentNotValue:    (*presentNotValue)++; break;
+            case CSFormMustHaveAny:        (*mustHaveAny)++; break;
+            case CSFormAbsentOrNotValue:   (*absentOrNotValue)++; break;
+            case CSFormMissing:
+            case CSFormNoConstraint:       break;
         }
     }
 }
@@ -720,18 +927,36 @@ typedef NS_ENUM(NSInteger, CSParseState) {
     // Sort keys for canonical representation
     NSArray<NSString *> *sortedKeys = [self.mutableTags.allKeys sortedArrayUsingSelector:@selector(compare:)];
 
+    // Build canonical serialization. Stored values map to:
+    //   "*"           -> "k"           (bare key, must-have-any)
+    //   "?"           -> "?k"          (prefix qualifier, no constraint)
+    //   "!"           -> "!k"          (prefix qualifier, must-not-have)
+    //   "?=v"         -> "k?=v"        (infix qualifier, absent or not v)
+    //   "!=v"         -> "k!=v"        (infix qualifier, present and not v)
+    //   exact "v"     -> "k=v" or "k=\"v\"" (with quoting if needed)
     NSMutableArray<NSString *> *parts = [NSMutableArray array];
     for (NSString *key in sortedKeys) {
         NSString *value = self.mutableTags[key];
         if ([value isEqualToString:@"*"]) {
-            // Valueless sugar: key
             [parts addObject:key];
         } else if ([value isEqualToString:@"?"]) {
-            // Explicit: key=?
-            [parts addObject:[NSString stringWithFormat:@"%@=?", key]];
+            [parts addObject:[NSString stringWithFormat:@"?%@", key]];
         } else if ([value isEqualToString:@"!"]) {
-            // Explicit: key=!
-            [parts addObject:[NSString stringWithFormat:@"%@=!", key]];
+            [parts addObject:[NSString stringWithFormat:@"!%@", key]];
+        } else if ([value hasPrefix:@"?="]) {
+            NSString *raw = [value substringFromIndex:2];
+            if ([CSTaggedUrn needsQuoting:raw]) {
+                [parts addObject:[NSString stringWithFormat:@"%@?=%@", key, [CSTaggedUrn quoteValue:raw]]];
+            } else {
+                [parts addObject:[NSString stringWithFormat:@"%@?=%@", key, raw]];
+            }
+        } else if ([value hasPrefix:@"!="]) {
+            NSString *raw = [value substringFromIndex:2];
+            if ([CSTaggedUrn needsQuoting:raw]) {
+                [parts addObject:[NSString stringWithFormat:@"%@!=%@", key, [CSTaggedUrn quoteValue:raw]]];
+            } else {
+                [parts addObject:[NSString stringWithFormat:@"%@!=%@", key, raw]];
+            }
         } else if ([CSTaggedUrn needsQuoting:value]) {
             [parts addObject:[NSString stringWithFormat:@"%@=%@", key, [CSTaggedUrn quoteValue:value]]];
         } else {
