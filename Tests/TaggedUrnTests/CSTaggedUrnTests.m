@@ -1366,4 +1366,65 @@
     XCTAssertNil(error);
 }
 
+- (void)test587_deltaEquivalentPreservesRuntimeRefinement {
+    NSError *error = nil;
+    CSTaggedUrn *base = [CSTaggedUrn fromString:@"media:image;png" error:&error];
+    XCTAssertNotNil(base);
+    CSTaggedUrn *target = [CSTaggedUrn fromString:@"media:image;png" error:&error];
+    XCTAssertNotNil(target);
+    CSTaggedUrn *runtime = [CSTaggedUrn fromString:@"media:image;png;thumbnail" error:&error];
+    XCTAssertNotNil(runtime);
+
+    CSTaggedUrnCoordinateDelta *delta = [target deltaFrom:base error:&error];
+    XCTAssertNotNil(delta);
+    XCTAssertNil(error);
+    XCTAssertEqual(delta.relationKind, CSTaggedUrnRelationKindEquivalent);
+    XCTAssertTrue([delta isEmpty]);
+
+    CSTaggedUrn *applied = [runtime applyDelta:delta error:&error];
+    XCTAssertNotNil(applied);
+    XCTAssertNil(error);
+    XCTAssertEqualObjects([applied toString], @"media:image;png;thumbnail");
+}
+
+- (void)test588_deltaIncomparableReplacementPreservesUnrelatedRefinement {
+    NSError *error = nil;
+    CSTaggedUrn *base = [CSTaggedUrn fromString:@"media:image;png" error:&error];
+    XCTAssertNotNil(base);
+    CSTaggedUrn *target = [CSTaggedUrn fromString:@"media:image;jpeg" error:&error];
+    XCTAssertNotNil(target);
+    CSTaggedUrn *runtime = [CSTaggedUrn fromString:@"media:image;png;thumbnail" error:&error];
+    XCTAssertNotNil(runtime);
+
+    CSTaggedUrnCoordinateDelta *delta = [target deltaFrom:base error:&error];
+    XCTAssertNotNil(delta);
+    XCTAssertNil(error);
+    XCTAssertEqual(delta.relationKind, CSTaggedUrnRelationKindIncomparable);
+
+    CSTaggedUrn *applied = [runtime applyDelta:delta error:&error];
+    XCTAssertNotNil(applied);
+    XCTAssertNil(error);
+    XCTAssertEqualObjects([applied toString], @"media:image;jpeg;thumbnail");
+}
+
+- (void)test589_deltaComparableRemovalDropsOnlyDeclaredCoordinate {
+    NSError *error = nil;
+    CSTaggedUrn *base = [CSTaggedUrn fromString:@"media:image;png" error:&error];
+    XCTAssertNotNil(base);
+    CSTaggedUrn *target = [CSTaggedUrn fromString:@"media:image" error:&error];
+    XCTAssertNotNil(target);
+    CSTaggedUrn *runtime = [CSTaggedUrn fromString:@"media:image;png;thumbnail" error:&error];
+    XCTAssertNotNil(runtime);
+
+    CSTaggedUrnCoordinateDelta *delta = [target deltaFrom:base error:&error];
+    XCTAssertNotNil(delta);
+    XCTAssertNil(error);
+    XCTAssertEqual(delta.relationKind, CSTaggedUrnRelationKindComparable);
+
+    CSTaggedUrn *applied = [runtime applyDelta:delta error:&error];
+    XCTAssertNotNil(applied);
+    XCTAssertNil(error);
+    XCTAssertEqualObjects([applied toString], @"media:image;thumbnail");
+}
+
 @end

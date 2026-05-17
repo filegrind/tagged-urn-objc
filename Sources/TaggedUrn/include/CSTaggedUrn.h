@@ -19,6 +19,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+@class CSTaggedUrnCoordinateDelta;
+
 /**
  * A tagged URN using flat, ordered tags with a configurable prefix
  *
@@ -160,6 +162,32 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)isComparableTo:(CSTaggedUrn * _Nonnull)other error:(NSError * _Nullable * _Nullable)error;
 
 /**
+ * Compute the directional coordinate delta from `base` to `self`.
+ *
+ * The two URNs must have the same prefix. The returned delta records:
+ * - removed coordinates: exact key/value pairs present in `base` but not in `self`
+ * - added coordinates: exact key/value pairs present in `self` but not in `base`
+ * - relation kind: equivalent / comparable / incomparable under accepts
+ *
+ * @param base The base URN to subtract from this URN
+ * @param error Error if prefixes do not match
+ * @return A coordinate delta or nil on error
+ */
+- (nullable CSTaggedUrnCoordinateDelta *)deltaFrom:(CSTaggedUrn * _Nonnull)base error:(NSError * _Nullable * _Nullable)error;
+
+/**
+ * Apply a coordinate delta to this URN.
+ *
+ * Removed entries must match exactly when present. Added entries are then
+ * written into the result. The delta prefix must match this URN's prefix.
+ *
+ * @param delta The coordinate delta to apply
+ * @param error Error if prefixes do not match
+ * @return A new tagged URN with the delta applied or nil on error
+ */
+- (nullable CSTaggedUrn *)applyDelta:(CSTaggedUrnCoordinateDelta * _Nonnull)delta error:(NSError * _Nullable * _Nullable)error;
+
+/**
  * Get the specificity score for URN matching.
  * Sum of per-tag truth-table scores. Per-tag ladder:
  *
@@ -266,6 +294,28 @@ FOUNDATION_EXPORT NSUInteger CSTaggedUrnScoreTagValue(NSString *value);
  * tagged-URN matcher uses internally.
  */
 + (BOOL)valuesMatchInst:(NSString * _Nullable)inst patt:(NSString * _Nullable)patt;
+
+@end
+
+typedef NS_ENUM(NSInteger, CSTaggedUrnRelationKind) {
+    CSTaggedUrnRelationKindEquivalent,
+    CSTaggedUrnRelationKindComparable,
+    CSTaggedUrnRelationKindIncomparable,
+};
+
+@interface CSTaggedUrnCoordinateDelta : NSObject <NSCopying, NSSecureCoding>
+
+@property (nonatomic, readonly) NSString *prefix;
+@property (nonatomic, readonly) NSDictionary<NSString *, NSString *> *removed;
+@property (nonatomic, readonly) NSDictionary<NSString *, NSString *> *added;
+@property (nonatomic, readonly) CSTaggedUrnRelationKind relationKind;
+
+- (instancetype)initWithPrefix:(NSString * _Nonnull)prefix
+                       removed:(NSDictionary<NSString *, NSString *> * _Nonnull)removed
+                         added:(NSDictionary<NSString *, NSString *> * _Nonnull)added
+                  relationKind:(CSTaggedUrnRelationKind)relationKind;
+
+- (BOOL)isEmpty;
 
 @end
 

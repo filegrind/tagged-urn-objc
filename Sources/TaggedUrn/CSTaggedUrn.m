@@ -39,6 +39,91 @@ typedef NS_ENUM(NSInteger, CSParseState) {
 @property (nonatomic, strong) NSMutableDictionary<NSString *, NSString *> *mutableTags;
 @end
 
+@interface CSTaggedUrnCoordinateDelta ()
+@property (nonatomic, strong) NSString *mutablePrefix;
+@property (nonatomic, strong) NSDictionary<NSString *, NSString *> *mutableRemoved;
+@property (nonatomic, strong) NSDictionary<NSString *, NSString *> *mutableAdded;
+@property (nonatomic, assign) CSTaggedUrnRelationKind mutableRelationKind;
+@end
+
+@implementation CSTaggedUrnCoordinateDelta
+
+- (instancetype)initWithPrefix:(NSString *)prefix
+                       removed:(NSDictionary<NSString *,NSString *> *)removed
+                         added:(NSDictionary<NSString *,NSString *> *)added
+                  relationKind:(CSTaggedUrnRelationKind)relationKind {
+    if (self = [super init]) {
+        _mutablePrefix = [prefix lowercaseString];
+        _mutableRemoved = [removed copy];
+        _mutableAdded = [added copy];
+        _mutableRelationKind = relationKind;
+    }
+    return self;
+}
+
+- (NSString *)prefix {
+    return self.mutablePrefix;
+}
+
+- (NSDictionary<NSString *,NSString *> *)removed {
+    return self.mutableRemoved;
+}
+
+- (NSDictionary<NSString *,NSString *> *)added {
+    return self.mutableAdded;
+}
+
+- (CSTaggedUrnRelationKind)relationKind {
+    return self.mutableRelationKind;
+}
+
+- (BOOL)isEmpty {
+    return self.mutableRemoved.count == 0 && self.mutableAdded.count == 0;
+}
+
++ (BOOL)supportsSecureCoding {
+    return YES;
+}
+
+- (void)encodeWithCoder:(NSCoder *)coder {
+    [coder encodeObject:self.mutablePrefix forKey:@"prefix"];
+    [coder encodeObject:self.mutableRemoved forKey:@"removed"];
+    [coder encodeObject:self.mutableAdded forKey:@"added"];
+    [coder encodeInteger:self.mutableRelationKind forKey:@"relationKind"];
+}
+
+- (instancetype)initWithCoder:(NSCoder *)coder {
+    NSString *prefix = [coder decodeObjectOfClass:[NSString class] forKey:@"prefix"] ?: @"";
+    NSDictionary *removed = [coder decodeObjectOfClass:[NSDictionary class] forKey:@"removed"] ?: @{};
+    NSDictionary *added = [coder decodeObjectOfClass:[NSDictionary class] forKey:@"added"] ?: @{};
+    CSTaggedUrnRelationKind relationKind = [coder decodeIntegerForKey:@"relationKind"];
+    return [self initWithPrefix:prefix removed:removed added:added relationKind:relationKind];
+}
+
+- (id)copyWithZone:(NSZone *)zone {
+    return [[CSTaggedUrnCoordinateDelta alloc] initWithPrefix:self.mutablePrefix
+                                                      removed:self.mutableRemoved
+                                                        added:self.mutableAdded
+                                                 relationKind:self.mutableRelationKind];
+}
+
+- (BOOL)isEqual:(id)object {
+    if (![object isKindOfClass:[CSTaggedUrnCoordinateDelta class]]) {
+        return NO;
+    }
+    CSTaggedUrnCoordinateDelta *other = (CSTaggedUrnCoordinateDelta *)object;
+    return [self.mutablePrefix isEqualToString:other.mutablePrefix]
+        && [self.mutableRemoved isEqualToDictionary:other.mutableRemoved]
+        && [self.mutableAdded isEqualToDictionary:other.mutableAdded]
+        && self.mutableRelationKind == other.mutableRelationKind;
+}
+
+- (NSUInteger)hash {
+    return self.mutablePrefix.hash ^ self.mutableRemoved.hash ^ self.mutableAdded.hash ^ self.mutableRelationKind;
+}
+
+@end
+
 @implementation CSTaggedUrn
 
 - (NSString *)prefix {
@@ -766,6 +851,99 @@ static CSFormKind CSClassifyForm(NSString * _Nullable value, NSString * _Nullabl
     }
 
     return forward || reverse;
+}
+
+- (nullable CSTaggedUrnCoordinateDelta *)deltaFrom:(CSTaggedUrn *)base error:(NSError **)error {
+    if (!base) {
+        if (error) {
+            *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                         code:CSTaggedUrnErrorInvalidFormat
+                                     userInfo:@{NSLocalizedDescriptionKey: @"Cannot compute delta from nil URN"}];
+        }
+        return nil;
+    }
+    if (![[self.mutablePrefix lowercaseString] isEqualToString:[base.mutablePrefix lowercaseString]]) {
+        if (error) {
+            *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                         code:CSTaggedUrnErrorPrefixMismatch
+                                     userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Cannot compute delta between URNs with different prefixes: '%@' vs '%@'", base.mutablePrefix, self.mutablePrefix]}];
+        }
+        return nil;
+    }
+
+    NSMutableDictionary<NSString *, NSString *> *removed = [NSMutableDictionary dictionary];
+    NSMutableDictionary<NSString *, NSString *> *added = [NSMutableDictionary dictionary];
+    NSMutableSet<NSString *> *allKeys = [NSMutableSet set];
+    [allKeys addObjectsFromArray:base.mutableTags.allKeys];
+    [allKeys addObjectsFromArray:self.mutableTags.allKeys];
+
+    for (NSString *key in allKeys) {
+        NSString *baseValue = base.mutableTags[key];
+        NSString *targetValue = self.mutableTags[key];
+        if (baseValue && !targetValue) {
+            removed[key] = baseValue;
+        } else if (!baseValue && targetValue) {
+            added[key] = targetValue;
+        } else if (baseValue && targetValue && ![baseValue isEqualToString:targetValue]) {
+            removed[key] = baseValue;
+            added[key] = targetValue;
+        }
+    }
+
+    NSError *relationError = nil;
+    BOOL equivalent = [self isEquivalentTo:base error:&relationError];
+    if (relationError) {
+        if (error) *error = relationError;
+        return nil;
+    }
+    CSTaggedUrnRelationKind relationKind;
+    if (equivalent) {
+        relationKind = CSTaggedUrnRelationKindEquivalent;
+    } else {
+        BOOL comparable = [self isComparableTo:base error:&relationError];
+        if (relationError) {
+            if (error) *error = relationError;
+            return nil;
+        }
+        relationKind = comparable ? CSTaggedUrnRelationKindComparable : CSTaggedUrnRelationKindIncomparable;
+    }
+
+    return [[CSTaggedUrnCoordinateDelta alloc] initWithPrefix:self.mutablePrefix
+                                                      removed:removed
+                                                        added:added
+                                                 relationKind:relationKind];
+}
+
+- (nullable CSTaggedUrn *)applyDelta:(CSTaggedUrnCoordinateDelta *)delta error:(NSError **)error {
+    if (!delta) {
+        if (error) {
+            *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                         code:CSTaggedUrnErrorInvalidFormat
+                                     userInfo:@{NSLocalizedDescriptionKey: @"Cannot apply nil delta"}];
+        }
+        return nil;
+    }
+    if (![[self.mutablePrefix lowercaseString] isEqualToString:[delta.prefix lowercaseString]]) {
+        if (error) {
+            *error = [NSError errorWithDomain:CSTaggedUrnErrorDomain
+                                         code:CSTaggedUrnErrorPrefixMismatch
+                                     userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Cannot apply delta with prefix '%@' to URN prefix '%@'", delta.prefix, self.mutablePrefix]}];
+        }
+        return nil;
+    }
+
+    NSMutableDictionary<NSString *, NSString *> *newTags = [self.mutableTags mutableCopy];
+    for (NSString *key in delta.removed) {
+        NSString *expected = delta.removed[key];
+        NSString *current = newTags[key];
+        if (current && [current isEqualToString:expected]) {
+            [newTags removeObjectForKey:key];
+        }
+    }
+    for (NSString *key in delta.added) {
+        newTags[key] = delta.added[key];
+    }
+    return [CSTaggedUrn fromPrefix:self.mutablePrefix tagsInternal:newTags error:error];
 }
 
 /// Core matching: does instance satisfy pattern's constraints?
