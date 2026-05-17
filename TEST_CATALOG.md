@@ -1,12 +1,12 @@
 # Swift/ObjC Test Catalog
 
-**Total Tests:** 95
+**Total Tests:** 98
 
-**Numbered Tests:** 11
+**Numbered Tests:** 14
 
 **Unnumbered Tests:** 84
 
-**Numbered Tests Missing Descriptions:** 0
+**Numbered Tests Missing Descriptions:** 3
 
 **Numbering Mismatches:** 0
 
@@ -24,6 +24,9 @@ This catalog lists all tests in the Swift/ObjC codebase.
 | test583 | `test583_prefixMismatchErrors` | TEST583: Prefix mismatch returns error for both relations | Tests/TaggedUrnTests/CSTaggedUrnTests.m:1293 |
 | test584 | `test584_emptyTagsComparableToAll` | TEST584: Empty tag set is comparable to everything with same prefix | Tests/TaggedUrnTests/CSTaggedUrnTests.m:1310 |
 | test586 | `test586_specialValues` | TEST586: Special values (*, !, ?) with isEquivalent and isComparable | Tests/TaggedUrnTests/CSTaggedUrnTests.m:1331 |
+| test587 | `test587_deltaEquivalentPreservesRuntimeRefinement` |  | Tests/TaggedUrnTests/CSTaggedUrnTests.m:1369 |
+| test588 | `test588_deltaIncomparableReplacementPreservesUnrelatedRefinement` |  | Tests/TaggedUrnTests/CSTaggedUrnTests.m:1390 |
+| test589 | `test589_deltaComparableRemovalDropsOnlyDeclaredCoordinate` |  | Tests/TaggedUrnTests/CSTaggedUrnTests.m:1410 |
 | test596 | `test596_builderWithPrefix` | TEST596: Builder with prefix verification | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:255 |
 | test597 | `test597_builderPreservesCase` | TEST597: Builder case preservation for quoted values | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:267 |
 | test598 | `test598_builderRejectsEmptyValue` | TEST598: Builder rejects empty tag values (matches Rust's Result error) | Tests/TaggedUrnTests/CSTaggedUrnBuilderTests.m:281 |
@@ -205,9 +208,19 @@ The following tests are cataloged but do not currently participate in numeric te
 
 ---
 
+## Numbered Tests Missing Descriptions
+
+These tests still participate in numeric indexing, but the cataloger did not find an authoritative immediate comment/docstring description for them. This is reported explicitly so intentional blank-description parity and accidental comment drift are both visible.
+
+- `test587` / `test587_deltaEquivalentPreservesRuntimeRefinement` — Tests/TaggedUrnTests/CSTaggedUrnTests.m:1369
+- `test588` / `test588_deltaIncomparableReplacementPreservesUnrelatedRefinement` — Tests/TaggedUrnTests/CSTaggedUrnTests.m:1390
+- `test589` / `test589_deltaComparableRemovalDropsOnlyDeclaredCoordinate` — Tests/TaggedUrnTests/CSTaggedUrnTests.m:1410
+
+---
+
 *Generated from Swift/ObjC source tree*
-*Total tests: 95*
-*Total numbered tests: 11*
+*Total tests: 98*
+*Total numbered tests: 14*
 *Total unnumbered tests: 84*
-*Total numbered tests missing descriptions: 0*
+*Total numbered tests missing descriptions: 3*
 *Total numbering mismatches: 0*
