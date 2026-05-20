@@ -618,14 +618,20 @@ static NSString *CSCanonicalNoValueForQualifier(char qualifier) {
         tags = @{};
     }
 
-    // Normalize keys to lowercase; values preserved as-is
-    NSMutableDictionary<NSString *, NSString *> *normalizedTags = [NSMutableDictionary dictionary];
+    // Normalize keys to lowercase and validate each authored tag through
+    // the same key/value rules the parser applies, so programmatic
+    // construction cannot bypass numeric-key, duplicate-key, or empty-value
+    // checks.
+    NSMutableDictionary<NSString *, NSString *> *validatedTags = [NSMutableDictionary dictionary];
     for (NSString *key in tags) {
         NSString *value = tags[key];
-        normalizedTags[[key lowercaseString]] = value;
+        NSString *keyLower = [key lowercaseString];
+        if (![self finishTag:validatedTags key:keyLower value:value ?: @"" error:error]) {
+            return nil;
+        }
     }
 
-    return [self fromPrefix:prefix tagsInternal:normalizedTags error:error];
+    return [self fromPrefix:prefix tagsInternal:validatedTags error:error];
 }
 
 + (nullable instancetype)fromPrefix:(NSString *)prefix tagsInternal:(NSDictionary<NSString *, NSString *> *)tags error:(NSError **)error {
