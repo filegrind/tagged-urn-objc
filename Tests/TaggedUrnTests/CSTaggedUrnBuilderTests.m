@@ -13,7 +13,8 @@
 
 @implementation CSTaggedUrnBuilderTests
 
-- (void)testBuilderBasicConstruction {
+// TEST0001: Builder basic construction
+- (void)test0001_BuilderBasicConstruction {
     NSError *error;
     CSTaggedUrnBuilder *builder = [CSTaggedUrnBuilder builderWithPrefix:@"cap"];
     [builder tag:@"type" value:@"data_processing"];
@@ -27,7 +28,8 @@
     XCTAssertEqualObjects([taggedUrn toString], @"cap:format=json;transform;type=data_processing");
 }
 
-- (void)testBuilderFluentAPI {
+// TEST0002: Builder fluent a p i
+- (void)test0002_BuilderFluentAPI {
     NSError *error;
     CSTaggedUrnBuilder *builder = [CSTaggedUrnBuilder builderWithPrefix:@"cap"];
     [builder marker:@"generate"];
@@ -45,7 +47,8 @@
     XCTAssertEqualObjects([urn getTag:@"output"], @"binary");
 }
 
-- (void)testBuilderJSONOutput {
+// TEST0003: Builder j s o n output
+- (void)test0003_BuilderJSONOutput {
     NSError *error;
     CSTaggedUrnBuilder *builder = [CSTaggedUrnBuilder builderWithPrefix:@"cap"];
     [builder tag:@"type" value:@"api"];
@@ -61,7 +64,8 @@
     XCTAssertEqualObjects([urn getTag:@"output"], @"json");
 }
 
-- (void)testBuilderCustomTags {
+// TEST0004: Builder custom tags
+- (void)test0004_BuilderCustomTags {
     NSError *error;
     CSTaggedUrnBuilder *builder = [CSTaggedUrnBuilder builderWithPrefix:@"cap"];
     [builder tag:@"engine" value:@"v2"];
@@ -77,7 +81,8 @@
     XCTAssertTrue([urn hasMarkerTag:@"compress"]);
 }
 
-- (void)testBuilderTagOverrides {
+// TEST0005: Builder tag overrides
+- (void)test0005_BuilderTagOverrides {
     NSError *error;
     CSTaggedUrnBuilder *builder = [CSTaggedUrnBuilder builderWithPrefix:@"cap"];
     [builder marker:@"convert"];
@@ -91,7 +96,8 @@
     XCTAssertEqualObjects([urn getTag:@"format"], @"jpg");
 }
 
-- (void)testBuilderEmptyBuild {
+// TEST0006: Builder empty build
+- (void)test0006_BuilderEmptyBuild {
     NSError *error;
     CSTaggedUrn *urn = [[CSTaggedUrnBuilder builderWithPrefix:@"cap"] build:&error];
 
@@ -101,7 +107,8 @@
     XCTAssertTrue([error.localizedDescription containsString:@"cannot be empty"]);
 }
 
-- (void)testBuilderBuildAllowEmpty {
+// TEST0007: Builder build allow empty
+- (void)test0007_BuilderBuildAllowEmpty {
     CSTaggedUrn *urn = [[CSTaggedUrnBuilder builderWithPrefix:@"cap"] buildAllowEmpty];
 
     XCTAssertNotNil(urn);
@@ -109,7 +116,8 @@
     XCTAssertEqualObjects([urn toString], @"cap:");
 }
 
-- (void)testBuilderSingleTag {
+// TEST0008: Builder single tag
+- (void)test0008_BuilderSingleTag {
     NSError *error;
     CSTaggedUrnBuilder *builder = [CSTaggedUrnBuilder builderWithPrefix:@"cap"];
     [builder tag:@"type" value:@"utility"];
@@ -125,7 +133,8 @@
     XCTAssertEqual([urn specificity], 4);
 }
 
-- (void)testBuilderComplex {
+// TEST0009: Builder complex
+- (void)test0009_BuilderComplex {
     NSError *error;
     CSTaggedUrnBuilder *builder = [CSTaggedUrnBuilder builderWithPrefix:@"cap"];
     [builder tag:@"type" value:@"media"];
@@ -158,7 +167,8 @@
     XCTAssertEqual([urn specificity], 30);
 }
 
-- (void)testBuilderWildcards {
+// TEST0010: Builder wildcards
+- (void)test0010_BuilderWildcards {
     NSError *error;
     CSTaggedUrnBuilder *builder = [CSTaggedUrnBuilder builderWithPrefix:@"cap"];
     [builder marker:@"convert"];
@@ -179,7 +189,8 @@
     XCTAssertTrue([urn hasMarkerTag:@"quality"]);
 }
 
-- (void)testBuilderStaticFactory {
+// TEST0011: Builder static factory
+- (void)test0011_BuilderStaticFactory {
     CSTaggedUrnBuilder *builder1 = [CSTaggedUrnBuilder builderWithPrefix:@"cap"];
     CSTaggedUrnBuilder *builder2 = [CSTaggedUrnBuilder builderWithPrefix:@"cap"];
 
@@ -188,7 +199,8 @@
     XCTAssertNotNil(builder2);
 }
 
-- (void)testBuilderCustomPrefix {
+// TEST0012: Builder custom prefix
+- (void)test0012_BuilderCustomPrefix {
     NSError *error;
     CSTaggedUrnBuilder *builder = [CSTaggedUrnBuilder builderWithPrefix:@"myapp"];
     [builder tag:@"key" value:@"value"];
@@ -200,7 +212,8 @@
     XCTAssertEqualObjects([urn toString], @"myapp:key=value");
 }
 
-- (void)testBuilderMatchingWithBuiltUrn {
+// TEST0013: Builder matching with built urn
+- (void)test0013_BuilderMatchingWithBuiltUrn {
     NSError *error;
 
     // Create a specific instance

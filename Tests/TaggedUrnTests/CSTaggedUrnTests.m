@@ -13,7 +13,8 @@
 
 @implementation CSTaggedUrnTests
 
-- (void)testTaggedUrnCreation {
+// TEST0014: Tagged urn creation
+- (void)test0014_TaggedUrnCreation {
     NSError *error;
     CSTaggedUrn *taggedUrn = [CSTaggedUrn fromString:@"cap:transform;format=json;data_processing" error:&error];
 
@@ -27,7 +28,8 @@
     XCTAssertEqualObjects([taggedUrn getTag:@"format"], @"json");
 }
 
-- (void)testCustomPrefix {
+// TEST0015: Custom prefix
+- (void)test0015_CustomPrefix {
     NSError *error;
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"myapp:generate;ext=pdf" error:&error];
     XCTAssertNotNil(urn);
@@ -38,7 +40,8 @@
     XCTAssertEqualObjects([urn toString], @"myapp:ext=pdf;generate");
 }
 
-- (void)testPrefixCaseInsensitive {
+// TEST0016: Prefix case insensitive
+- (void)test0016_PrefixCaseInsensitive {
     NSError *error;
     CSTaggedUrn *urn1 = [CSTaggedUrn fromString:@"CAP:test" error:&error];
     XCTAssertNotNil(urn1);
@@ -54,7 +57,8 @@
     XCTAssertEqualObjects(urn2, urn3);
 }
 
-- (void)testCanonicalStringFormat {
+// TEST0017: Canonical string format
+- (void)test0017_CanonicalStringFormat {
     NSError *error;
     CSTaggedUrn *taggedUrn = [CSTaggedUrn fromString:@"cap:generate;target=thumbnail;ext=pdf" error:&error];
 
@@ -65,7 +69,8 @@
     XCTAssertEqualObjects([taggedUrn toString], @"cap:ext=pdf;generate;target=thumbnail");
 }
 
-- (void)testPrefixRequired {
+// TEST0018: Prefix required
+- (void)test0018_PrefixRequired {
     NSError *error;
     // Missing prefix should fail
     CSTaggedUrn *taggedUrn = [CSTaggedUrn fromString:@"generate;ext=pdf" error:&error];
@@ -88,7 +93,8 @@
     XCTAssertTrue([taggedUrn hasMarkerTag:@"generate"]);
 }
 
-- (void)testTrailingSemicolonEquivalence {
+// TEST0019: Trailing semicolon equivalence
+- (void)test0019_TrailingSemicolonEquivalence {
     NSError *error;
     // Both with and without trailing semicolon should be equivalent
     CSTaggedUrn *urn1 = [CSTaggedUrn fromString:@"cap:generate;ext=pdf" error:&error];
@@ -116,7 +122,8 @@
     XCTAssertTrue(matches2);
 }
 
-- (void)testInvalidTaggedUrn {
+// TEST0020: Invalid tagged urn
+- (void)test0020_InvalidTaggedUrn {
     NSError *error;
     CSTaggedUrn *taggedUrn = [CSTaggedUrn fromString:@"" error:&error];
 
@@ -125,7 +132,8 @@
     XCTAssertEqual(error.code, CSTaggedUrnErrorInvalidFormat);
 }
 
-- (void)testValuelessTagParsing {
+// TEST0021: Valueless tag parsing
+- (void)test0021_ValuelessTagParsing {
     // Value-less tag is now valid and treated as wildcard
     NSError *error;
     CSTaggedUrn *taggedUrn = [CSTaggedUrn fromString:@"cap:optimize" error:&error];
@@ -136,7 +144,8 @@
     XCTAssertEqualObjects([taggedUrn toString], @"cap:optimize");
 }
 
-- (void)testInvalidCharacters {
+// TEST0022: Invalid characters
+- (void)test0022_InvalidCharacters {
     NSError *error;
     CSTaggedUrn *taggedUrn = [CSTaggedUrn fromString:@"cap:type@invalid=value" error:&error];
 
@@ -145,7 +154,8 @@
     XCTAssertEqual(error.code, CSTaggedUrnErrorInvalidCharacter);
 }
 
-- (void)testTagMatching {
+// TEST0023: Tag matching
+- (void)test0023_TagMatching {
     NSError *error;
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:generate;ext=pdf;target=thumbnail;" error:&error];
 
@@ -174,7 +184,8 @@
     XCTAssertFalse(matches);
 }
 
-- (void)testPrefixMismatchError {
+// TEST0024: Prefix mismatch error
+- (void)test0024_PrefixMismatchError {
     NSError *error;
     CSTaggedUrn *urn1 = [CSTaggedUrn fromString:@"cap:test" error:&error];
     XCTAssertNotNil(urn1);
@@ -187,7 +198,8 @@
     XCTAssertEqual(error.code, CSTaggedUrnErrorPrefixMismatch);
 }
 
-- (void)testMissingTagHandling {
+// TEST0025: Missing tag handling
+- (void)test0025_MissingTagHandling {
     // NEW SEMANTICS: Missing tag in instance means the tag doesn't exist.
     // Pattern constraints must be satisfied by instance.
     NSError *error;
@@ -207,7 +219,8 @@
     XCTAssertTrue(matches); // Instance has ext=pdf, pattern doesn't constrain ext
 }
 
-- (void)testSpecificity {
+// TEST0026: Specificity
+- (void)test0026_Specificity {
     // Six-form ladder:
     //   ?x        : 0  (no constraint)
     //   x?=v      : 1  (absent OR not v)
@@ -229,7 +242,8 @@
     XCTAssertTrue(moreSpecific); // exact(4) > marker(2)
 }
 
-- (void)testDirectionalAccepts {
+// TEST0027: Directional accepts
+- (void)test0027_DirectionalAccepts {
     NSError *error;
     // General pattern accepts specific instance
     CSTaggedUrn *general = [CSTaggedUrn fromString:@"cap:generate" error:&error];
@@ -258,7 +272,8 @@
     XCTAssertFalse(result); // op mismatch
 }
 
-- (void)testConvenienceMethods {
+// TEST0028: Convenience methods
+- (void)test0028_ConvenienceMethods {
     NSError *error;
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:generate;ext=pdf;output=binary;target=thumbnail" error:&error];
 
@@ -270,7 +285,8 @@
     XCTAssertEqualObjects([urn getTag:@"output"], @"binary");
 }
 
-- (void)testBuilder {
+// TEST0029: Builder
+- (void)test0029_Builder {
     NSError *error;
     CSTaggedUrnBuilder *builder = [CSTaggedUrnBuilder builderWithPrefix:@"cap"];
     [builder marker:@"generate"];
@@ -286,7 +302,8 @@
     XCTAssertEqualObjects([urn getTag:@"output"], @"binary");
 }
 
-- (void)testBuilderWithCustomPrefix {
+// TEST0030: Builder with custom prefix
+- (void)test0030_BuilderWithCustomPrefix {
     NSError *error;
     CSTaggedUrnBuilder *builder = [CSTaggedUrnBuilder builderWithPrefix:@"custom"];
     [builder tag:@"key" value:@"value"];
@@ -298,7 +315,8 @@
     XCTAssertEqualObjects([urn toString], @"custom:key=value");
 }
 
-- (void)testWithTag {
+// TEST0031: With tag
+- (void)test0031_WithTag {
     NSError *error;
     CSTaggedUrn *original = [CSTaggedUrn fromString:@"cap:generate" error:&error];
     CSTaggedUrn *modified = [original withTag:@"ext" value:@"pdf"];
@@ -310,7 +328,8 @@
     XCTAssertEqualObjects([original toString], @"cap:generate");
 }
 
-- (void)testWithoutTag {
+// TEST0032: Without tag
+- (void)test0032_WithoutTag {
     NSError *error;
     CSTaggedUrn *original = [CSTaggedUrn fromString:@"cap:generate;ext=pdf" error:&error];
     CSTaggedUrn *modified = [original withoutTag:@"ext"];
@@ -321,7 +340,8 @@
     XCTAssertEqualObjects([original toString], @"cap:ext=pdf;generate");
 }
 
-- (void)testWildcardTag {
+// TEST0033: Wildcard tag
+- (void)test0033_WildcardTag {
     NSError *error;
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:ext=pdf" error:&error];
     CSTaggedUrn *wildcarded = [urn withWildcardTag:@"ext"];
@@ -341,7 +361,8 @@
     XCTAssertTrue(matches);
 }
 
-- (void)testSubset {
+// TEST0034: Subset
+- (void)test0034_Subset {
     NSError *error;
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:generate;ext=pdf;output=binary;target=thumbnail" error:&error];
     CSTaggedUrn *subset = [urn subset:@[@"type", @"ext"]];
@@ -349,7 +370,8 @@
     XCTAssertEqualObjects([subset toString], @"cap:ext=pdf");
 }
 
-- (void)testMerge {
+// TEST0035: Merge
+- (void)test0035_Merge {
     NSError *error;
     CSTaggedUrn *urn1 = [CSTaggedUrn fromString:@"cap:generate" error:&error];
     CSTaggedUrn *urn2 = [CSTaggedUrn fromString:@"cap:ext=pdf;output=binary" error:&error];
@@ -362,7 +384,8 @@
     XCTAssertEqualObjects([merged toString], @"cap:ext=pdf;generate;output=binary");
 }
 
-- (void)testMergePrefixMismatch {
+// TEST0036: Merge prefix mismatch
+- (void)test0036_MergePrefixMismatch {
     NSError *error;
     CSTaggedUrn *urn1 = [CSTaggedUrn fromString:@"cap:generate" error:&error];
     CSTaggedUrn *urn2 = [CSTaggedUrn fromString:@"myapp:ext=pdf" error:&error];
@@ -374,7 +397,8 @@
     XCTAssertEqual(error.code, CSTaggedUrnErrorPrefixMismatch);
 }
 
-- (void)testEquality {
+// TEST0037: Equality
+- (void)test0037_Equality {
     NSError *error;
     CSTaggedUrn *urn1 = [CSTaggedUrn fromString:@"cap:generate" error:&error];
     CSTaggedUrn *urn2 = [CSTaggedUrn fromString:@"cap:generate" error:&error]; // different order
@@ -385,7 +409,8 @@
     XCTAssertEqual([urn1 hash], [urn2 hash]);
 }
 
-- (void)testEqualityDifferentPrefix {
+// TEST0038: Equality different prefix
+- (void)test0038_EqualityDifferentPrefix {
     NSError *error;
     CSTaggedUrn *urn1 = [CSTaggedUrn fromString:@"cap:generate" error:&error];
     CSTaggedUrn *urn2 = [CSTaggedUrn fromString:@"myapp:generate" error:&error];
@@ -393,7 +418,8 @@
     XCTAssertNotEqualObjects(urn1, urn2);
 }
 
-- (void)testCoding {
+// TEST0039: Coding
+- (void)test0039_Coding {
     NSError *error;
     CSTaggedUrn *original = [CSTaggedUrn fromString:@"cap:generate" error:&error];
     XCTAssertNotNil(original);
@@ -412,7 +438,8 @@
     XCTAssertEqualObjects(original, decoded);
 }
 
-- (void)testCodingWithCustomPrefix {
+// TEST0040: Coding with custom prefix
+- (void)test0040_CodingWithCustomPrefix {
     NSError *error;
     CSTaggedUrn *original = [CSTaggedUrn fromString:@"myapp:key=value" error:&error];
     XCTAssertNotNil(original);
@@ -431,7 +458,8 @@
     XCTAssertEqualObjects(decoded.prefix, @"myapp");
 }
 
-- (void)testCopying {
+// TEST0041: Copying
+- (void)test0041_Copying {
     NSError *error;
     CSTaggedUrn *original = [CSTaggedUrn fromString:@"cap:generate" error:&error];
     CSTaggedUrn *copy = [original copy];
@@ -442,7 +470,8 @@
 
 #pragma mark - New Rule Tests
 
-- (void)testEmptyTaggedUrn {
+// TEST0042: Empty tagged urn
+- (void)test0042_EmptyTaggedUrn {
     // Empty tagged URN is valid
     NSError *error = nil;
     CSTaggedUrn *empty = [CSTaggedUrn fromString:@"cap:" error:&error];
@@ -473,7 +502,8 @@
     XCTAssertTrue(matches);
 }
 
-- (void)testEmptyWithCustomPrefix {
+// TEST0043: Empty with custom prefix
+- (void)test0043_EmptyWithCustomPrefix {
     NSError *error = nil;
     CSTaggedUrn *empty = [CSTaggedUrn fromString:@"myapp:" error:&error];
     XCTAssertNotNil(empty);
@@ -482,7 +512,8 @@
     XCTAssertEqualObjects([empty toString], @"myapp:");
 }
 
-- (void)testEmptyWithPrefixMethod {
+// TEST0044: Empty with prefix method
+- (void)test0044_EmptyWithPrefixMethod {
     CSTaggedUrn *empty = [CSTaggedUrn emptyWithPrefix:@"custom"];
     XCTAssertNotNil(empty);
     XCTAssertEqualObjects(empty.prefix, @"custom");
@@ -490,7 +521,8 @@
     XCTAssertEqualObjects([empty toString], @"custom:");
 }
 
-- (void)testExtendedCharacterSupport {
+// TEST0045: Extended character support
+- (void)test0045_ExtendedCharacterSupport {
     NSError *error = nil;
     // Test forward slashes and colons in tag components
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:url=https://example_org/api;path=/some/file" error:&error];
@@ -500,7 +532,8 @@
     XCTAssertEqualObjects([urn getTag:@"path"], @"/some/file");
 }
 
-- (void)testWildcardRestrictions {
+// TEST0046: Wildcard restrictions
+- (void)test0046_WildcardRestrictions {
     NSError *error = nil;
     // Wildcard should be rejected in keys
     CSTaggedUrn *invalidKey = [CSTaggedUrn fromString:@"cap:*=value" error:&error];
@@ -518,7 +551,8 @@
     XCTAssertEqualObjects([validValue getTag:@"key"], @"*");
 }
 
-- (void)testDuplicateKeyRejection {
+// TEST0047: Duplicate key rejection
+- (void)test0047_DuplicateKeyRejection {
     NSError *error = nil;
     // Duplicate keys should be rejected
     CSTaggedUrn *duplicate = [CSTaggedUrn fromString:@"cap:key=value1;key=value2" error:&error];
@@ -527,7 +561,8 @@
     XCTAssertEqual(error.code, CSTaggedUrnErrorDuplicateKey);
 }
 
-- (void)testNumericKeyRestriction {
+// TEST0048: Numeric key restriction
+- (void)test0048_NumericKeyRestriction {
     NSError *error = nil;
 
     // Pure numeric keys should be rejected
@@ -559,7 +594,8 @@
 
 #pragma mark - Quoted Value Tests
 
-- (void)testUnquotedValuesLowercased {
+// TEST0049: Unquoted values lowercased
+- (void)test0049_UnquotedValuesLowercased {
     NSError *error = nil;
     // Unquoted values are normalized to lowercase
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:ext=pdf;generate;target=thumbnail;" error:&error];
@@ -581,7 +617,8 @@
     XCTAssertEqualObjects(urn, urn2);
 }
 
-- (void)testQuotedValuesPreserveCase {
+// TEST0050: Quoted values preserve case
+- (void)test0050_QuotedValuesPreserveCase {
     NSError *error = nil;
     // Quoted values preserve their case
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:key=\"Value With Spaces\"" error:&error];
@@ -609,7 +646,8 @@
     XCTAssertNotEqualObjects(unquoted, quoted); // NOT equal
 }
 
-- (void)testQuotedValueSpecialChars {
+// TEST0051: Quoted value special chars
+- (void)test0051_QuotedValueSpecialChars {
     NSError *error = nil;
     // Semicolons in quoted values
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:key=\"value;with;semicolons\"" error:&error];
@@ -632,7 +670,8 @@
     XCTAssertEqualObjects([urn3 getTag:@"key"], @"hello world");
 }
 
-- (void)testQuotedValueEscapeSequences {
+// TEST0052: Quoted value escape sequences
+- (void)test0052_QuotedValueEscapeSequences {
     NSError *error = nil;
     // Escaped quotes
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:key=\"value\\\"quoted\\\"\"" error:&error];
@@ -648,7 +687,8 @@
     XCTAssertEqualObjects([urn2 getTag:@"key"], @"path\\file");
 }
 
-- (void)testMixedQuotedUnquoted {
+// TEST0053: Mixed quoted unquoted
+- (void)test0053_MixedQuotedUnquoted {
     NSError *error = nil;
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:a=\"Quoted\";b=simple" error:&error];
     XCTAssertNotNil(urn);
@@ -657,7 +697,8 @@
     XCTAssertEqualObjects([urn getTag:@"b"], @"simple");
 }
 
-- (void)testUnterminatedQuoteError {
+// TEST0054: Unterminated quote error
+- (void)test0054_UnterminatedQuoteError {
     NSError *error = nil;
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:key=\"unterminated" error:&error];
     XCTAssertNil(urn);
@@ -665,7 +706,8 @@
     XCTAssertEqual(error.code, CSTaggedUrnErrorUnterminatedQuote);
 }
 
-- (void)testInvalidEscapeSequenceError {
+// TEST0055: Invalid escape sequence error
+- (void)test0055_InvalidEscapeSequenceError {
     NSError *error = nil;
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:key=\"bad\\n\"" error:&error];
     XCTAssertNil(urn);
@@ -673,7 +715,8 @@
     XCTAssertEqual(error.code, CSTaggedUrnErrorInvalidEscapeSequence);
 }
 
-- (void)testSerializationSmartQuoting {
+// TEST0056: Serialization smart quoting
+- (void)test0056_SerializationSmartQuoting {
     NSError *error = nil;
     // Simple lowercase value - no quoting needed
     CSTaggedUrnBuilder *builder = [CSTaggedUrnBuilder builderWithPrefix:@"cap"];
@@ -704,7 +747,8 @@
     XCTAssertEqualObjects([urn4 toString], @"cap:key=\"has\\\"quote\"");
 }
 
-- (void)testRoundTripSimple {
+// TEST0057: Round trip simple
+- (void)test0057_RoundTripSimple {
     NSError *error = nil;
     NSString *original = @"cap:generate;ext=pdf";
     CSTaggedUrn *urn = [CSTaggedUrn fromString:original error:&error];
@@ -715,7 +759,8 @@
     XCTAssertEqualObjects(urn, reparsed);
 }
 
-- (void)testRoundTripQuoted {
+// TEST0058: Round trip quoted
+- (void)test0058_RoundTripQuoted {
     NSError *error = nil;
     NSString *original = @"cap:key=\"Value With Spaces\"";
     CSTaggedUrn *urn = [CSTaggedUrn fromString:original error:&error];
@@ -727,7 +772,8 @@
     XCTAssertEqualObjects([reparsed getTag:@"key"], @"Value With Spaces");
 }
 
-- (void)testHasTagCaseSensitive {
+// TEST0059: Has tag case sensitive
+- (void)test0059_HasTagCaseSensitive {
     NSError *error = nil;
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:key=\"Value\"" error:&error];
     XCTAssertNotNil(urn);
@@ -744,7 +790,8 @@
     XCTAssertTrue([urn hasTag:@"Key" withValue:@"Value"]);
 }
 
-- (void)testBuilderPreservesCase {
+// TEST0060: Builder preserves case
+- (void)test0060_BuilderPreservesCase {
     NSError *error = nil;
     CSTaggedUrnBuilder *builder = [CSTaggedUrnBuilder builderWithPrefix:@"cap"];
     [builder tag:@"KEY" value:@"ValueWithCase"];
@@ -758,7 +805,8 @@
     XCTAssertEqualObjects([urn toString], @"cap:key=\"ValueWithCase\"");
 }
 
-- (void)testSemanticEquivalence {
+// TEST0061: Semantic equivalence
+- (void)test0061_SemanticEquivalence {
     NSError *error = nil;
     // Unquoted and quoted simple lowercase values are equivalent
     CSTaggedUrn *unquoted = [CSTaggedUrn fromString:@"cap:key=simple" error:&error];
@@ -772,7 +820,8 @@
     XCTAssertEqualObjects([quoted toString], @"cap:key=simple");
 }
 
-- (void)testMatchingDifferentPrefixesError {
+// TEST0062: Matching different prefixes error
+- (void)test0062_MatchingDifferentPrefixesError {
     NSError *error = nil;
     CSTaggedUrn *urn1 = [CSTaggedUrn fromString:@"cap:test" error:&error];
     XCTAssertNotNil(urn1);
@@ -799,7 +848,7 @@
 // All implementations (Rust, Go, JS, ObjC) must pass these identically
 // ============================================================================
 
-- (void)testMatchingSemantics_Test1_ExactMatch {
+- (void)test0063_MatchingSemantics_Test1_ExactMatch {
     // Test 1: Exact match
     // URN:     cap:generate;ext=pdf
     // Request: cap:generate;ext=pdf
@@ -816,7 +865,8 @@
     XCTAssertTrue(matches, @"Test 1: Exact match should succeed");
 }
 
-- (void)testMatchingSemantics_Test2_InstanceMissingTag {
+// TEST0064: Matching semantics  test2  instance missing tag
+- (void)test0064_MatchingSemantics_Test2_InstanceMissingTag {
     // Test 2: Instance missing tag
     // Instance: cap:generate;in=media:;out=media:
     // Pattern:  cap:generate;ext=pdf
@@ -842,7 +892,8 @@
     XCTAssertTrue(matches, @"Pattern with ext=? should match instance without ext");
 }
 
-- (void)testMatchingSemantics_Test3_UrnHasExtraTag {
+// TEST0065: Matching semantics  test3  urn has extra tag
+- (void)test0065_MatchingSemantics_Test3_UrnHasExtraTag {
     // Test 3: URN has extra tag
     // URN:     cap:generate;ext=pdf;version=2
     // Request: cap:generate;ext=pdf
@@ -859,7 +910,8 @@
     XCTAssertTrue(matches, @"Test 3: URN with extra tag should match");
 }
 
-- (void)testMatchingSemantics_Test4_RequestHasWildcard {
+// TEST0066: Matching semantics  test4  request has wildcard
+- (void)test0066_MatchingSemantics_Test4_RequestHasWildcard {
     // Test 4: Request has wildcard
     // URN:     cap:generate;ext=pdf
     // Request: cap:generate;ext=*
@@ -876,7 +928,8 @@
     XCTAssertTrue(matches, @"Test 4: Request wildcard should match");
 }
 
-- (void)testMatchingSemantics_Test5_UrnHasWildcard {
+// TEST0067: Matching semantics  test5  urn has wildcard
+- (void)test0067_MatchingSemantics_Test5_UrnHasWildcard {
     // Test 5: URN has wildcard
     // URN:     cap:generate;ext=*
     // Request: cap:generate;ext=pdf
@@ -893,7 +946,8 @@
     XCTAssertTrue(matches, @"Test 5: URN wildcard should match");
 }
 
-- (void)testMatchingSemantics_Test6_ValueMismatch {
+// TEST0068: Matching semantics  test6  value mismatch
+- (void)test0068_MatchingSemantics_Test6_ValueMismatch {
     // Test 6: Value mismatch
     // URN:     cap:generate;ext=pdf
     // Request: cap:generate;ext=docx
@@ -910,7 +964,8 @@
     XCTAssertFalse(matches, @"Test 6: Value mismatch should not match");
 }
 
-- (void)testMatchingSemantics_Test7_PatternHasExtraTag {
+// TEST0069: Matching semantics  test7  pattern has extra tag
+- (void)test0069_MatchingSemantics_Test7_PatternHasExtraTag {
     // Test 7: Pattern has extra tag that instance doesn't have
     // Instance: cap:generate-thumbnail;out="media:binary"
     // Pattern:  cap:ext=wav;generate-thumbnail;out="media:binary"
@@ -929,7 +984,8 @@
     XCTAssertFalse(matches, @"Test 7: Instance missing ext should NOT match when pattern requires ext=wav");
 }
 
-- (void)testMatchingSemantics_Test8_EmptyPatternMatchesAnything {
+// TEST0070: Matching semantics  test8  empty pattern matches anything
+- (void)test0070_MatchingSemantics_Test8_EmptyPatternMatchesAnything {
     // Test 8: Empty PATTERN matches any INSTANCE
     // Instance: cap:generate;ext=pdf
     // Pattern:  cap:
@@ -955,7 +1011,8 @@
     XCTAssertFalse(matches, @"Empty instance should NOT match pattern with requirements");
 }
 
-- (void)testMatchingSemantics_Test9_CrossDimensionConstraints {
+// TEST0071: Matching semantics  test9  cross dimension constraints
+- (void)test0071_MatchingSemantics_Test9_CrossDimensionConstraints {
     // Test 9: Cross-dimension constraints
     // Instance: cap:generate;in=media:;out=media:
     // Pattern:  cap:ext=pdf
@@ -988,7 +1045,7 @@
 // Value-less tags are equivalent to wildcard tags (key=*)
 // ============================================================================
 
-- (void)testValuelessTagParsingSingle {
+- (void)test0072_ValuelessTagParsingSingle {
     // Single value-less tag
     NSError *error = nil;
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:optimize" error:&error];
@@ -999,7 +1056,8 @@
     XCTAssertEqualObjects([urn toString], @"cap:optimize");
 }
 
-- (void)testValuelessTagParsingMultiple {
+// TEST0073: Valueless tag parsing multiple
+- (void)test0073_ValuelessTagParsingMultiple {
     // Multiple value-less tags
     NSError *error = nil;
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:fast;optimize;secure" error:&error];
@@ -1012,7 +1070,8 @@
     XCTAssertEqualObjects([urn toString], @"cap:fast;optimize;secure");
 }
 
-- (void)testValuelessTagMixedWithValued {
+// TEST0074: Valueless tag mixed with valued
+- (void)test0074_ValuelessTagMixedWithValued {
     // Mix of value-less and valued tags
     NSError *error = nil;
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:generate;optimize;ext=pdf;secure" error:&error];
@@ -1026,7 +1085,8 @@
     XCTAssertEqualObjects([urn toString], @"cap:ext=pdf;generate;optimize;secure");
 }
 
-- (void)testValuelessTagAtEnd {
+// TEST0075: Valueless tag at end
+- (void)test0075_ValuelessTagAtEnd {
     // Value-less tag at the end (no trailing semicolon)
     NSError *error = nil;
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:generate;optimize" error:&error];
@@ -1037,7 +1097,8 @@
     XCTAssertEqualObjects([urn toString], @"cap:generate;optimize");
 }
 
-- (void)testValuelessTagEquivalenceToWildcard {
+// TEST0076: Valueless tag equivalence to wildcard
+- (void)test0076_ValuelessTagEquivalenceToWildcard {
     // Value-less tag is equivalent to explicit wildcard
     NSError *error = nil;
     CSTaggedUrn *valueless = [CSTaggedUrn fromString:@"cap:ext" error:&error];
@@ -1050,7 +1111,8 @@
     XCTAssertEqualObjects([wildcard toString], @"cap:ext");
 }
 
-- (void)testValuelessTagMatching {
+// TEST0077: Valueless tag matching
+- (void)test0077_ValuelessTagMatching {
     // Value-less tag (wildcard) matches any value
     NSError *error = nil;
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:generate;ext" error:&error];
@@ -1074,7 +1136,8 @@
     XCTAssertTrue(matches);
 }
 
-- (void)testValuelessTagInPattern {
+// TEST0078: Valueless tag in pattern
+- (void)test0078_ValuelessTagInPattern {
     // Pattern with value-less tag (K=*) requires instance to have the tag
     NSError *error = nil;
     CSTaggedUrn *pattern = [CSTaggedUrn fromString:@"cap:generate;ext" error:&error];
@@ -1106,7 +1169,8 @@
     XCTAssertTrue(matches);
 }
 
-- (void)testValuelessTagSpecificity {
+// TEST0079: Valueless tag specificity
+- (void)test0079_ValuelessTagSpecificity {
     // Six-form ladder: ?x=0, x?=v=1, x=*=2, x!=v=3, x=v=4, !x=5.
     NSError *error = nil;
     CSTaggedUrn *urn1 = [CSTaggedUrn fromString:@"cap:generate" error:&error];          // 1 marker
@@ -1118,7 +1182,8 @@
     XCTAssertEqual([urn3 specificity], 6);  // 1 marker + 1 exact = 2 + 4 = 6
 }
 
-- (void)testValuelessTagRoundtrip {
+// TEST0080: Valueless tag roundtrip
+- (void)test0080_ValuelessTagRoundtrip {
     // Round-trip parsing and serialization
     NSError *error = nil;
     NSString *original = @"cap:ext=pdf;generate;optimize;secure";
@@ -1131,7 +1196,8 @@
     XCTAssertEqualObjects(serialized, original);
 }
 
-- (void)testValuelessTagCaseNormalization {
+// TEST0081: Valueless tag case normalization
+- (void)test0081_ValuelessTagCaseNormalization {
     // Value-less tags are normalized to lowercase like other keys
     NSError *error = nil;
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:OPTIMIZE;Fast;SECURE" error:&error];
@@ -1143,7 +1209,8 @@
     XCTAssertEqualObjects([urn toString], @"cap:fast;optimize;secure");
 }
 
-- (void)testEmptyValueStillError {
+// TEST0082: Empty value still error
+- (void)test0082_EmptyValueStillError {
     // Empty value with = is still an error (different from value-less)
     NSError *error = nil;
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:key=" error:&error];
@@ -1156,7 +1223,8 @@
     XCTAssertNotNil(error);
 }
 
-- (void)testValuelessTagDirectionalAccepts {
+// TEST0083: Valueless tag directional accepts
+- (void)test0083_ValuelessTagDirectionalAccepts {
     // Value-less tag (wildcard pattern) accepts any value
     NSError *error = nil;
     CSTaggedUrn *pattern = [CSTaggedUrn fromString:@"cap:generate;ext" error:&error];
@@ -1186,7 +1254,8 @@
     XCTAssertFalse(result); // ext=docx does not accept ext=pdf
 }
 
-- (void)testValuelessNumericKeyStillRejected {
+// TEST0084: Valueless numeric key still rejected
+- (void)test0084_ValuelessNumericKeyStillRejected {
     // Purely numeric keys are still rejected for value-less tags
     NSError *error = nil;
     CSTaggedUrn *urn = [CSTaggedUrn fromString:@"cap:123" error:&error];
@@ -1366,6 +1435,7 @@
     XCTAssertNil(error);
 }
 
+// TEST587: Delta equivalent preserves runtime refinement
 - (void)test587_deltaEquivalentPreservesRuntimeRefinement {
     NSError *error = nil;
     CSTaggedUrn *base = [CSTaggedUrn fromString:@"media:image;png" error:&error];
@@ -1387,6 +1457,7 @@
     XCTAssertEqualObjects([applied toString], @"media:image;png;thumbnail");
 }
 
+// TEST588: Delta incomparable replacement preserves unrelated refinement
 - (void)test588_deltaIncomparableReplacementPreservesUnrelatedRefinement {
     NSError *error = nil;
     CSTaggedUrn *base = [CSTaggedUrn fromString:@"media:image;png" error:&error];
@@ -1407,6 +1478,7 @@
     XCTAssertEqualObjects([applied toString], @"media:image;jpeg;thumbnail");
 }
 
+// TEST589: Delta comparable removal drops only declared coordinate
 - (void)test589_deltaComparableRemovalDropsOnlyDeclaredCoordinate {
     NSError *error = nil;
     CSTaggedUrn *base = [CSTaggedUrn fromString:@"media:image;png" error:&error];
